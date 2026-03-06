@@ -1,0 +1,76 @@
+---
+title: "Initial Graphs"
+author: "Kyran Lakhia"
+date: "`r Sys.Date()`"
+output: pdf_document
+output_dir: "../Outputs"
+---
+
+```{r}
+#Loading data/packages
+library(dplyr)
+library(ggplot2)
+library(readr)
+
+loan <- read_csv("../Raw Data/lc_2016_2017.csv")
+head(loan)
+```
+
+
+Question 5: Which states are experiencing the lowest grades on average?
+```{r}
+# Convert grades to numeric
+loan_avg <- loan %>%
+  mutate(grade_num = as.numeric(factor(grade, levels = c("A","B","C","D","E","F","G"))))
+
+# Calculate average grade by state
+state_avg <- loan_avg %>%
+  group_by(addr_state) %>%
+  summarise(avg_grade = mean(grade_num, na.rm = TRUE)) %>%
+  arrange(desc(avg_grade)) %>%
+  slice_head(n = 10)
+
+# Plot
+ggplot(state_avg, aes(x = reorder(addr_state, avg_grade), y = avg_grade, fill = avg_grade)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  scale_fill_gradient(low = "#fcae91", high = "#cb181d") +
+  scale_y_continuous(
+    breaks = 1:7,
+    labels = c("A","B","C","D","E","F","G")
+  ) +
+  labs(
+    title = "States with the Worst Average Loan Grades (2016–2017)",
+    subtitle = "Loan grades range from A (best) to G (worst)",
+    x = "State",
+    y = "Average Loan Grade"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(face = "bold")
+  )
+```
+The chart shows the states with the worst average loan grades in the 2016–2017 dataset. Since loan grades range from A (best) to G (worst), higher averages mean slightly lower credit quality. States like Hawaii, Mississippi, and Alabama have the highest average grades among the top ten states. However, the averages are still between B and C, which suggests that overall loan quality remains fairly strong even in the states with the lowest average grades.
+
+Question 10: Is there a relationship between home ownership and purpose?
+```{r}
+purpose_home <- loan %>%
+  filter(home_ownership %in% c("RENT", "MORTGAGE", "OWN")) %>%
+  group_by(home_ownership, purpose) %>%
+  summarise(count = n(), .groups = "drop")
+
+library(scales)
+
+ggplot(purpose_home, aes(x = home_ownership, y = count, fill = purpose)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Loan Purpose by Home Ownership Status (2016–2017)",
+    x = "Home Ownership Status",
+    y = "Number of Loans",
+    fill = "Loan Purpose" 
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
