@@ -1,0 +1,7 @@
+---
+title: "README"
+output: html_document
+---
+
+## Data
+The raw LendingClub datasets are not stored in this repository because the files are too large for standard GitHub storage. To run the analysis, place `lc_2016_2017.csv` in the `Raw Data/` folder.
