@@ -12,7 +12,139 @@ library(tidyverse)
 loan <- read_csv("../Raw Data/lc_loan.csv")
 ```
 
-### DataCleaning
+### Data Cleaning
+
+```{r}
+library(janitor)      # for clean_names()
+library(stringr)      # for str_squish()
+library(DataExplorer) # for introduce() and plot_missing()
+```
+
+```{r}
+glimpse(loan)
+```
+
+```{r}
+dim(loan)
+```
+
+```{r}
+DataExplorer::introduce(loan)
+DataExplorer::plot_missing(loan)
+```
+
+```{r}
+(missing_tbl <- loan |>
+    summarise(across(everything(), ~ sum(is.na(.)))) |>
+    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
+    arrange(desc(n_missing)))
+any(duplicated(loan))
+```
+
+```{r}
+loan <- loan[!duplicated(loan), ]
+
+loan_clean <- loan |>
+  select(
+    annual_inc, int_rate, loan_amnt, emp_length, dti,   # numerical
+    addr_state, grade, purpose, home_ownership, term,   # categorical
+    loan_status, verification_status                    # useful context
+  )
+
+loan_clean <- loan_clean |>
+  clean_names()
+
+loan_clean <- loan_clean |>
+  mutate(across(where(is.character), ~ str_squish(.))) |>
+  mutate(across(where(is.character), ~ na_if(.x, ""))) |>
+  mutate(across(where(is.character),
+                ~ case_when(
+                  .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
+                  TRUE ~ .x
+                )))
+
+loan_clean <- loan_clean |>
+  mutate(across(all_of(c("grade", "addr_state", "home_ownership")), str_to_upper)) |>
+  mutate(across(all_of(c("purpose", "term", "loan_status", "verification_status")), str_to_lower))
+```
+
+```{r}
+loan_clean <- loan_clean |>
+  mutate(emp_length = suppressWarnings(case_when(
+    emp_length == "< 1 year"  ~ 0,
+    emp_length == "1 year"    ~ 1,
+    emp_length == "10+ years" ~ 10,
+    TRUE ~ as.numeric(gsub(" years?", "", emp_length))
+  )))
+
+loan_clean <- loan_clean |>
+  mutate(
+    annual_inc = as.numeric(annual_inc),
+    loan_amnt  = as.numeric(loan_amnt),
+    int_rate   = as.numeric(gsub("%", "", int_rate)),
+    dti        = as.numeric(dti)
+  )
+
+loan_clean <- loan_clean |>
+  mutate(
+    grade          = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
+    term           = factor(term,  levels = c("36 months","60 months"),     ordered = TRUE),
+    home_ownership = factor(home_ownership,
+                            levels = c("OWN","MORTGAGE","RENT","OTHER","NONE","ANY")),
+    purpose        = factor(purpose),
+    addr_state     = factor(addr_state)
+  )
+```
+
+```{r}
+table(factor(loan_clean$grade))
+```
+
+```{r}
+table(factor(loan_clean$home_ownership))
+```
+
+```{r}
+table(factor(loan_clean$purpose))
+```
+
+```{r}
+table(factor(loan_clean$term))
+```
+
+```{r}
+loan_clean <- loan_clean |>
+  filter(
+    !is.na(int_rate),
+    !is.na(loan_amnt),
+    !is.na(grade),
+    !is.na(home_ownership),
+    !is.na(purpose),
+    !is.na(term),
+    !is.na(addr_state)
+  )
+
+glimpse(loan_clean)
+dim(loan_clean)
+```
+
+```{r}
+(missing_tbl_final <- loan_clean |>
+    summarise(across(everything(), ~ sum(is.na(.)))) |>
+    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
+    arrange(desc(n_missing)))
+```
+
+```{r}
+loan_clean <- loan_clean |>
+  mutate(purpose = str_replace_all(purpose, "_", " "))
+```
+
+```{r}
+actual_data <- loan_clean |>
+  select(annual_inc, int_rate, loan_amnt, emp_length, dti,
+         addr_state, grade, purpose, home_ownership, term)
+```
 
 # Creator: FIRSTNAME LASTNAME
 
@@ -100,6 +232,7 @@ GIVE A 2 PARAGRAPH SUMMARY.
 PARAGRAPH 1 SHOULD DESCRIBE WHAT YOU LEARNED ABOUT YOUR DATA FROM INVESTIGATING THE INITIAL QUESTIONS. DID YOU FIND ANYTHING UNUSUAL IN YOUR DATA? DID ANYTHING SURPRISE YOU? WHICH OF THE INITIAL QUESTIONS WERE HELPFUL IN LEADING YOU TO MORE QUESTIONS?
 
 PARAGRAPH 2 SHOULD SUMMARIZE WHAT YOU LEARNED FROM INVESTIGATING THE FOLLOW-UP QUESTIONS. WHY ARE THESE FOLLOW-UP QUESTIONS INTERESTING FOR INVESTIGATION? DESCRIBE THE TABLES/FIGURES YOU USED TO EXPLORE ANSWERS TO THESE FOLLOW-UP QUESTIONS? WHAT DID YOU LEARN FROM THE TABLES/FIGURES REGARDING THE FOLLOW-UP QUESTIONS YOU PROPOSED?
+
 
 
 
