@@ -22,3 +22,5 @@ Data Dictionary:
 | home_ownership | categorical | Borrower's home ownership status |
 | addr_state | categorical | state of the borrower |
 | term | categorical | length of the loan (36 or 60 months) |
+
+test
