@@ -43,7 +43,7 @@ write.csv(actual_data, "subset_data.csv", row.names = FALSE)
 glimpse(actual_data)
 ```
 
-Data Dictionary:
+Data Dictionary: double check the categorical/ordinal
 
 | Variable | Type | What it represents|
 | :--- | :---: | :---: |
@@ -52,11 +52,11 @@ Data Dictionary:
 | annual_inc | numeric (double) | annual income of the borrower |
 | emp_length | categorical | employment length in years |
 | dti | numeric (double) | debt-to-income ratio |
-| grade | categorical | loan grade assigned by Lending Club (A-G|
+| grade | ordinal | loan grade assigned by Lending Club (A-G)|
 | purpose | categorical | stated purposed of the loan |
-| home_ownership | categorical | Borrower's home ownership status |
+| home_ownership | ordinal | Borrower's home ownership status |
 | addr_state | categorical | state of the borrower |
-| term | categorical | length of the loan (36 or 60 months) |
+| term | ordinal | length of the loan (36 or 60 months) |
 
 
 Questions:
@@ -78,7 +78,7 @@ boxplot of annual_income by home_ownership, plus a grouped bar of emp_length x h
 
 
 3. How do average interest rates for each grade compare?
-- This is one numeric and one categorical variable.
+- One numeric and one categorical variable.
 Summary table: grouped means of int_rate by grade
 Graph: boxplot of int_rate by grade (shows distribution + outliers per grade, not just averages)
 
