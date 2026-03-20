@@ -7,20 +7,154 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(stringr)
+library(janitor)
+library(dplyr)
+library(tidyverse)
+```
+
+Read CSV File
+```{r}
+data <- read.csv("lc_loan.csv")
+head(data)
+```
+```{r}
+data <- clean_names(data)
+```
+
+```{r}
+names(data)
+```
+
+
+Subset of the actual data
+Numerical variables: annual_income, int_rate, loan_amnt, emp_length, dti
+Categorical variables: addr_state, grade, purpose, home_ownership, term
+
+```{r}
+actual_data <- subset(data, select = c("annual_inc", "int_rate", "loan_amnt", "emp_length", "dti", "addr_state", "grade", "purpose", "home_ownership", "term"))
+```
+
+```{r}
+write.csv(actual_data, "subset_data.csv", row.names = FALSE)
+```
+
+```{r}
+glimpse(actual_data)
 ```
 
 Data Dictionary:
+
 | Variable | Type | What it represents|
 | :--- | :---: | :---: |
-| int_rate | numeric | interest rate on the loan |
-| loan_amnt | numeric | amount of the loan issued |
-| annual_inc | numeric | annual income of the borrower |
-| emp_length | integer | employment length in years |
-| dti | numeric | debt-to-income ratio |
-| grade | factor | loan grade assigned by Lending Club (A-G| 
+| int_rate | numeric (double) | interest rate on the loan |
+| loan_amnt | numeric (double) | amount of the loan issued |
+| annual_inc | numeric (double) | annual income of the borrower |
+| emp_length | categorical | employment length in years |
+| dti | numeric (double) | debt-to-income ratio |
+| grade | categorical | loan grade assigned by Lending Club (A-G|
 | purpose | categorical | stated purposed of the loan |
 | home_ownership | categorical | Borrower's home ownership status |
 | addr_state | categorical | state of the borrower |
 | term | categorical | length of the loan (36 or 60 months) |
 
-testingg
+
+Questions:
+
+1. Can interest rate be predicted based on loan term and loan grade?
+boxplot of int_rate by grade, faceted by term (36 vs 60 months)
+
+```{r}
+
+```
+
+
+2. Can home ownership status be predicted using borrower income and employment length?
+boxplot of annual_income by home_ownership, plus a grouped bar of emp_length x home_ownership
+
+```{r}
+
+```
+
+
+3. How do average interest rates for each grade compare?
+- This is one numeric and one categorical variable.
+Summary table: grouped means of int_rate by grade
+Graph: boxplot of int_rate by grade (shows distribution + outliers per grade, not just averages)
+
+```{r}
+
+```
+
+
+4. Does purpose of loan correlate to loan amount?
+- One numeric and one categorical
+Summary table: grouped stats of loan_amnt by purpose
+Graph: boxplot
+
+```{r}
+
+```
+
+
+5. Which states have the lowest average grades?
+- One numeric/ordinal + one categorical
+Summary table: average grade by state, sorted from lowest to highest
+Graph: bar chart of average grade by state, sorted ascending
+
+```{r}
+
+```
+
+
+6. How does employment length relate to home ownership status?
+- Two categorical variables
+Summary table: table(df$emp_length, df$home_ownership)
+Graph: grouped bar chart of home ownership proportions across employment length groups
+
+```{r}
+
+```
+
+
+7. Is there a relationship between state and purpose of loan
+- Two categorical variables
+Summary table: contingency table of state x purpose
+Graph: stacked bar chart of purpose by state (each bar is a state, segments are purposes
+
+```{r}
+
+```
+
+
+8. Is there a relationship between loan amount and loan grade?
+- One numeric and one categorical
+Summary table: grouped stats of loan_amnt by grade using profiling_num() after grouping
+Graph: boxplot of loan_amnt by grade
+
+```{r}
+
+```
+
+
+9. Is there a correlation between DTI and purpose?
+Summary table: grouped means/medians of DTI by purpose
+Graph: boxplot of DIT by purpose
+
+```{r}
+
+```
+
+
+10. Is there a relationship between home ownership and purpose?
+- Two categorical variables
+Summary table: table(df$home_ownership, df$purpose)
+Graph: grouped/stacked bar chart showing proportions of loan purpose within each home ownership category
+
+```{r}
+
+```
+
+
+Additional changes to replace:
+
