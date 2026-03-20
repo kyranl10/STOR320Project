@@ -5,14 +5,45 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
 ---
 
+### Statement of business problem
+
+
+
+### Data Dictionary:
+| Variable | Type | What it represents|
+| :--- | :---: | :---: |
+| int_rate | numeric (double) | interest rate on the loan |
+| loan_amnt | numeric (double) | amount of the loan issued |
+| annual_inc | numeric (double) | annual income of the borrower |
+| emp_length | categorical | employment length in years |
+| dti | numeric (double) | debt-to-income ratio |
+| grade | categorical | loan grade assigned by Lending Club (A-G|
+| purpose | categorical | stated purposed of the loan |
+| home_ownership | categorical | Borrower's home ownership status |
+| addr_state | categorical | state of the borrower |
+| term | categorical | length of the loan (36 or 60 months) |
+
+
+### Data Quality Report:
+Numeric data quality report:
+
+
+
+Categorical data quality report:
+
+
+### Data Quality Plan:
+
+
+
+
+### Data Cleaning
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 # Import Data Below
 loan <- read_csv("../Raw Data/lc_loan.csv")
 ```
-
-### Data Cleaning
 
 ```{r}
 library(janitor)      # for clean_names()
@@ -146,57 +177,77 @@ actual_data <- loan_clean |>
          addr_state, grade, purpose, home_ownership, term)
 ```
 
-# Creator: FIRSTNAME LASTNAME
 
-### Q1: WRITE_QUESTION_HERE
+
+
+
+
+
+# Creator: Tracy Huang
+
+### Q1: Can interest rate be predicted based on loan term and loan grade?
+
+```{r}
+
+```
+
+### Q2: Can home ownership status be predicted using borrower income and employment length?
 
 ```{r}
 #
 ```
 
-### Q2: WRITE_QUESTION_HERE
+# Interpreter: Kyran Lakhia
+
+### Q1: Which states are experiencing the lowest grades on average?
 
 ```{r}
 #
 ```
 
-# Interpreter: FIRSTNAME LASTNAME
-
-### Q1: WRITE_QUESTION_HERE
+### Q2: Is there a relationship between home ownership and purpose?
 
 ```{r}
 #
 ```
 
-### Q2: WRITE_QUESTION_HERE
+# Orator 1: Ross Guinan
+
+### Q1: Is there a relationship between loan amount and loan grade?
 
 ```{r}
 #
 ```
 
-# Orator: FIRSTNAME LASTNAME
-
-### Q1: WRITE_QUESTION_HERE
+### Q2: Is there a correlation between DTI and purpose?
 
 ```{r}
 #
 ```
 
-### Q2: WRITE_QUESTION_HERE
+# Orator 2: Carter Boxell
+
+### Q1: How do the average interest rates for each grade compare?
 
 ```{r}
 #
 ```
 
-# Deliverer: Kyran Lakhia
-
-### Q1: WRITE_QUESTION_HERE
+### Q2: Is there a relationship between state and purpose of loan?
 
 ```{r}
 #
 ```
 
-### Q2: WRITE_QUESTION_HERE
+# Deliverer: Emily Jones
+
+### Q1: Does the purpose of the loan correlate to the amount of the loan?
+
+```{r}
+#
+```
+
+### Q2: How does employment length relate to homeownership status?
 
 ```{r}
 #
