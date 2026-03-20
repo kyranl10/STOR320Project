@@ -1,0 +1,24 @@
+---
+title: "Data Dictionary"
+author: "Tracy Huang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Data Dictionary:
+| Variable | Type | What it represents|
+| :--- | :---: | :---: |
+| int_rate | numeric | interest rate on the loan |
+| loan_amnt | numeric | amount of the loan issued |
+| annual_inc | numeric | annual income of the borrower |
+| emp_length | integer | employment length in years |
+| dti | numeric | debt-to-income ratio |
+| grade | factor | loan grade assigned by Lending Club (A-G| 
+| purpose | categorical | stated purposed of the loan |
+| home_ownership | categorical | Borrower's home ownership status |
+| addr_state | categorical | state of the borrower |
+| term | categorical | length of the loan (36 or 60 months) |
