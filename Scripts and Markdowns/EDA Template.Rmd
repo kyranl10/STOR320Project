@@ -165,6 +165,7 @@ numerical_quality
 ```{r}
 categorical_quality <- actual_data |>
   select(grade, purpose, home_ownership, addr_state, term) |>
+  mutate(across(everything(), as.character)) |>
   pivot_longer(everything(), names_to = "Feature", values_to = "value") |>
   group_by(Feature) |>
   summarise(
@@ -183,7 +184,7 @@ categorical_quality
 
 The following issues were identified in the raw dataset and addressed during data cleaning:
 
-**Missing Values:** Several variables contained missing values. Key variables (`int_rate`, `loan_amnt`, `grade`, `home_ownership`, `purpose`, `term`, `addr_state`) had rows with NAs removed entirely since they are essential for all analyses. Numerical variables `emp_length`, `annual_inc`, and `dti` retained their missing values and are only filtered within specific question chunks that require them, preserving the maximum number of observations for unrelated analyses.
+**Missing Values:** Several variables contained missing values. Key variables (`int_rate`, `loan_amnt`, `grade`, `home_ownership`, `purpose`, `term`, `addr_state`) had rows with NAs removed entirely since they are essential for all analyses. `emp_length` had 44,825 missing values and `annual_inc` had 4 missing values — both were retained in `actual_data` and are only filtered within specific question chunks that require them, preserving the maximum number of observations for unrelated analyses. All other variables had 0 missing values after cleaning.
 
 **Duplicate Rows:** The dataset was checked for fully duplicated rows using `any(duplicated(loan))`, which returned `FALSE` — confirming no duplicates were present.
 
@@ -393,17 +394,3 @@ GIVE A 2 PARAGRAPH SUMMARY.
 PARAGRAPH 1 SHOULD DESCRIBE WHAT YOU LEARNED ABOUT YOUR DATA FROM INVESTIGATING THE INITIAL QUESTIONS. DID YOU FIND ANYTHING UNUSUAL IN YOUR DATA? DID ANYTHING SURPRISE YOU? WHICH OF THE INITIAL QUESTIONS WERE HELPFUL IN LEADING YOU TO MORE QUESTIONS?
 
 PARAGRAPH 2 SHOULD SUMMARIZE WHAT YOU LEARNED FROM INVESTIGATING THE FOLLOW-UP QUESTIONS. WHY ARE THESE FOLLOW-UP QUESTIONS INTERESTING FOR INVESTIGATION? DESCRIBE THE TABLES/FIGURES YOU USED TO EXPLORE ANSWERS TO THESE FOLLOW-UP QUESTIONS? WHAT DID YOU LEARN FROM THE TABLES/FIGURES REGARDING THE FOLLOW-UP QUESTIONS YOU PROPOSED?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
