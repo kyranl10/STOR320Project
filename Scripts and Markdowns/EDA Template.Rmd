@@ -5,87 +5,186 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
 ---
 
-### Statement of business problem
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressWarnings(library(tidyverse))
+suppressWarnings(library(janitor))      
+suppressWarnings(library(stringr))     
+suppressWarnings(library(DataExplorer))
+suppressWarnings(library(skimr))
+suppressWarnings(library(corrr))
+suppressWarnings(library(tidyverse))
+suppressWarnings(library(car))
+suppressWarnings(library(gt))
+
+```
 
 
+```{r setup, include=FALSE}
+# Import Data Below
+loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv")
+```
 
-### Data Dictionary:
-| Variable | Type | What it represents|
-| :--- | :---: | :---: |
-| int_rate | numeric (double) | interest rate on the loan |
-| loan_amnt | numeric (double) | amount of the loan issued |
-| annual_inc | numeric (double) | annual income of the borrower |
-| emp_length | categorical | employment length in years |
-| dti | numeric (double) | debt-to-income ratio |
-| grade | categorical | loan grade assigned by Lending Club (A-G|
-| purpose | categorical | stated purposed of the loan |
-| home_ownership | categorical | Borrower's home ownership status |
-| addr_state | categorical | state of the borrower |
-| term | categorical | length of the loan (36 or 60 months) |
+Subset of actual dataset of interest:
+```{r}
+actual_data <- loan_dataset_full |>
+  select(annual_inc, int_rate, loan_amnt, emp_length, dti,
+         addr_state, grade, purpose, home_ownership, term) |>
+  janitor::clean_names() |>
+  mutate(across(where(is.character), as.factor))
 
+glimpse(actual_data)
+summary(actual_data)
+```
 
-### Data Quality Report:
-Numeric data quality report:
-
-
-
-Categorical data quality report:
+###Statement of the business problem
 
 
-### Data Quality Plan:
+### Data Dictionary
+RESEARCH MORE*
+
+| Variable | Type | What it represents |
+| :--- | :---: | :--- |
+| int_rate | Numeric (continuous) | Interest rate on the loan |
+| loan_amnt | Numeric (continuous) | Amount of the loan issued |
+| annual_inc | Numeric (continuous) | Annual income of the borrower |
+| emp_length | Categorical | Employment length in years (0–10) |
+| dti | Numeric (continuous) | Debt-to-income ratio |
+| grade | Ordinal factor (A–G) | Loan grade assigned by Lending Club; A is best, G is worst |
+| purpose | Nominal factor | Stated purpose of the loan |
+| home_ownership | Nominal factor | Borrower's home ownership status |
+| addr_state | Nominal factor | State of the borrower |
+| term | Ordinal factor | Length of the loan (36 or 60 months) |
 
 
+### Data Quality Report
+
+##Numerical Features
+```{r}
+numeric_features <- actual_data |>
+  select_if(is.numeric)
+
+num_s <- skimr::skim_without_charts(numeric_features)
+
+focus_numeric_table <- as.data.frame(num_s) |>
+  mutate(count = nrow(actual_data) - n_missing) |>
+  select(skim_variable, count, numeric.p0, numeric.p25, numeric.mean, 
+         numeric.p50, numeric.p75, numeric.p100, numeric.sd)
+
+extra_two <- funModeling::status(numeric_features)[ ,c("p_na", "unique")]
+rownames(extra_two) <- NULL
+
+numeric_report_table <- cbind(focus_numeric_table, extra_two) |>
+  relocate(p_na, .before = 3) |>
+  relocate(unique, .before = 4)
+
+names(numeric_report_table) <- c("Feature", "Count", "% Miss.", "Cardinality", "Min", "1st Qrt.", "Mean", "Median", "3rd Qrt.", "Max", "Std. Dev.")
+
+numeric_report_table
+```
+
+```{r}
+# Function to count outliers using IQR method
+count_outliers <- function(x) {
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  sum(x < Q1 - 1.5 * IQR | x > Q3 + 1.5 * IQR, na.rm = TRUE)
+}
+
+# Apply to all numeric variables
+numeric_features <- actual_data |>
+  select(annual_inc, int_rate, loan_amnt, dti)
+
+outlier_summary <- data.frame(
+  Feature = names(numeric_features),
+  Outlier_Count = sapply(numeric_features, count_outliers),
+  Outlier_Pct = round(sapply(numeric_features, count_outliers) / nrow(actual_data) * 100, 2)
+)
+
+outlier_summary
+```
+
+```{r}
+numeric_features |>
+  pivot_longer(everything(), names_to = "variable", values_to = "value") |>
+  ggplot(aes(x = variable, y = value)) +
+  geom_boxplot() +
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal()
+```
+
+
+#### Categorical Features
+
+```{r}
+categorical_features <- actual_data |>
+  select_if(is.factor)
+
+cat_s <- skim_without_charts(categorical_features)
+
+focus_cat_table <- as.data.frame(cat_s) |>
+  mutate(count = nrow(actual_data) - n_missing) |>
+  mutate(percent_Miss = round((1 - complete_rate) * 100, 1)) |>
+  select(skim_variable, count, percent_Miss, factor.n_unique, factor.top_counts)
+
+names(focus_cat_table) <- c("Feature", "Count", "% Miss.", "Card.", "Top Counts")
+
+focus_cat_table
+funModeling::freq(categorical_features)
+```
+
+### Data Issues and Proposed Handling Techniques
+
+The following issues were identified in the raw dataset and addressed during data cleaning:
+
+**Missing Values:** Several variables contained missing values. Key variables (`int_rate`, `loan_amnt`, `grade`, `home_ownership`, `purpose`, `term`, `addr_state`) had rows with NAs removed entirely since they are essential for all analyses. `emp_length` had 44,825 missing values and `annual_inc` had 4 missing values — both were retained in `actual_data` and are only filtered within specific question chunks that require them, preserving the maximum number of observations for unrelated analyses. All other variables had 0 missing values after cleaning.
+
+**Duplicate Rows:** The dataset was checked for fully duplicated rows using `any(duplicated(loan))`, which returned `FALSE` — confirming no duplicates were present.
+
+**Inconsistent String Formatting:** All character columns were cleaned using `str_squish()` to remove extra whitespace, and blank-like values (`""`, `"NA"`, `"N/A"`, `"null"`, `"unknown"`) were standardized to `NA` using `na_if()` and `case_when()`. Case was standardized — grade, state, and home ownership to uppercase; purpose and term to lowercase.
+
+**purpose Formatting:** Loan purpose values contained underscores (e.g. `"debt_consolidation"`) which were replaced with spaces using `fct_relabel()` and `str_replace_all()` for cleaner display in plots and tables.
+
+**Factor Encoding:** Ordinal variables `grade` (A–G) and `term` (36 vs. 60 months) were encoded as ordered factors so R respects their natural ranking in models and visualizations. Nominal variables `home_ownership`, `purpose`, and `addr_state` were encoded as unordered factors.
+
+
+MENTION OUTLIERS
 
 
 ### Data Cleaning
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
-# Import Data Below
-loan <- read_csv("../Raw Data/lc_loan.csv")
+To see the basic format of the data and get a sense of how many rows and columns we have.
+```{r}
+glimpse(actual_data)
+dim(actual_data)
 ```
 
 ```{r}
-library(janitor)      # for clean_names()
-library(stringr)      # for str_squish()
-library(DataExplorer) # for introduce() and plot_missing()
+suppressWarnings(DataExplorer::introduce(actual_data))
+suppressWarnings(DataExplorer::plot_missing(actual_data))
 ```
 
 ```{r}
-glimpse(loan)
-```
-
-```{r}
-dim(loan)
-```
-
-```{r}
-DataExplorer::introduce(loan)
-DataExplorer::plot_missing(loan)
-```
-
-```{r}
-(missing_tbl <- loan |>
+(missing_tbl <- actual_data |>
     summarise(across(everything(), ~ sum(is.na(.)))) |>
     pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
     arrange(desc(n_missing)))
-any(duplicated(loan))
 ```
 
+Check to see if there are any duplicated data rows:
 ```{r}
-loan <- loan[!duplicated(loan), ]
+any(duplicated(actual_data))
+```
 
-loan_clean <- loan |>
-  select(
-    annual_inc, int_rate, loan_amnt, emp_length, dti,   # numerical
-    addr_state, grade, purpose, home_ownership, term,   # categorical
-    loan_status, verification_status                    # useful context
-  )
 
-loan_clean <- loan_clean |>
-  clean_names()
+Removing all the duplicates and keeping the first occurrence:
+```{r}
+actual_data <- actual_data[!duplicated(actual_data), ]
+```
 
-loan_clean <- loan_clean |>
+Cleaning string variables
+```{r}
+actual_data <- actual_data |>
   mutate(across(where(is.character), ~ str_squish(.))) |>
   mutate(across(where(is.character), ~ na_if(.x, ""))) |>
   mutate(across(where(is.character),
@@ -93,165 +192,327 @@ loan_clean <- loan_clean |>
                   .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
                   TRUE ~ .x
                 )))
-
-loan_clean <- loan_clean |>
-  mutate(across(all_of(c("grade", "addr_state", "home_ownership")), str_to_upper)) |>
-  mutate(across(all_of(c("purpose", "term", "loan_status", "verification_status")), str_to_lower))
 ```
 
+
+Fix int_rate: remove % sign if present and convert to numeric, Encoding the factors, Replace underscores in purpose with spaces (aesthetic purposes)
 ```{r}
-loan_clean <- loan_clean |>
-  mutate(emp_length = suppressWarnings(case_when(
-    emp_length == "< 1 year"  ~ 0,
-    emp_length == "1 year"    ~ 1,
-    emp_length == "10+ years" ~ 10,
-    TRUE ~ as.numeric(gsub(" years?", "", emp_length))
-  )))
+actual_data <- actual_data |>
+  mutate(int_rate = as.numeric(gsub("%", "", int_rate)))
 
-loan_clean <- loan_clean |>
-  mutate(
-    annual_inc = as.numeric(annual_inc),
-    loan_amnt  = as.numeric(loan_amnt),
-    int_rate   = as.numeric(gsub("%", "", int_rate)),
-    dti        = as.numeric(dti)
-  )
-
-loan_clean <- loan_clean |>
+actual_data <- actual_data |>
   mutate(
     grade          = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
     term           = factor(term,  levels = c("36 months","60 months"),     ordered = TRUE),
     home_ownership = factor(home_ownership,
                             levels = c("OWN","MORTGAGE","RENT","OTHER","NONE","ANY")),
     purpose        = factor(purpose),
-    addr_state     = factor(addr_state)
-  )
-```
-
-```{r}
-table(factor(loan_clean$grade))
-```
-
-```{r}
-table(factor(loan_clean$home_ownership))
-```
-
-```{r}
-table(factor(loan_clean$purpose))
-```
-
-```{r}
-table(factor(loan_clean$term))
-```
-
-```{r}
-loan_clean <- loan_clean |>
-  filter(
-    !is.na(int_rate),
-    !is.na(loan_amnt),
-    !is.na(grade),
-    !is.na(home_ownership),
-    !is.na(purpose),
-    !is.na(term),
-    !is.na(addr_state)
+    addr_state     = factor(addr_state),
+    emp_length = factor(emp_length,
+        levels = c("< 1 year", "1 year", "2 years", "3 years",
+                   "4 years","5 years", "6 years", "7 years", 
+                   "8 years", "9 years","10+ years"),
+        ordered = TRUE)
   )
 
-glimpse(loan_clean)
-dim(loan_clean)
+actual_data <- actual_data |>
+  mutate(purpose = fct_relabel(purpose, ~ str_replace_all(.x, "_", " ")))
+```
+
+
+Drop rows missing key variables:
+```{r}
+actual_data <- actual_data |>
+  drop_na()
 ```
 
 ```{r}
-(missing_tbl_final <- loan_clean |>
+(missing_tbl_final <- actual_data |>
     summarise(across(everything(), ~ sum(is.na(.)))) |>
     pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
     arrange(desc(n_missing)))
 ```
 
-```{r}
-loan_clean <- loan_clean |>
-  mutate(purpose = str_replace_all(purpose, "_", " "))
-```
-
-```{r}
-actual_data <- loan_clean |>
-  select(annual_inc, int_rate, loan_amnt, emp_length, dti,
-         addr_state, grade, purpose, home_ownership, term)
-```
-
-
-
-
-
 
 
 # Creator: Tracy Huang
 
-### Q1: Can interest rate be predicted based on loan term and loan grade?
+### Q1: Can interest rate by predicted based on loan term and loan grade?
 
+Summary:
 ```{r}
+q1_table <- actual_data |>
+  group_by(grade, term) |>
+  summarise(
+    n = n(),
+    mean_int_rate = round(mean(int_rate, na.rm = TRUE), 2),
+    median_int_rate = round(median(int_rate, na.rm = TRUE), 2),
+    sd_int_rate = round(sd(int_rate, na.rm = TRUE), 2),
+    q1 = round(quantile(int_rate, 0.25, na.rm = TRUE), 2),
+    q3 = round(quantile(int_rate, 0.75, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  arrange(grade, term)
 
+q1_table |> gt()
 ```
+
+Graph:
+```{r}
+actual_data |>
+  ggplot(aes(x = grade, y = int_rate, fill = term)) +
+  geom_boxplot() +
+  labs(
+    title = "Interest Rate by Loan Grade and Term",
+    x = "Loan Grade",
+    y = "Interest Rate (%)",
+    fill = "Term"
+  ) +
+  theme_minimal()
+```
+
+Interpretation of Findings:
+
+
 
 ### Q2: Can home ownership status be predicted using borrower income and employment length?
 
+Summary:
 ```{r}
-#
+q2_table <- actual_data |>
+  mutate(inc_decile = ntile(annual_inc, 10)) |>
+  group_by(home_ownership, inc_decile) |>
+  summarise(
+    n = n(),
+    inc_min = round(min(annual_inc, na.rm = TRUE), 0),
+    inc_max = round(max(annual_inc, na.rm = TRUE), 0),
+    mean_inc = round(mean(annual_inc, na.rm = TRUE), 0),
+    .groups = "drop"
+  ) |>
+  arrange(home_ownership, inc_decile)
+
+q2_table |> gt()
 ```
+
+
+Graph: 
+```{r}
+q2_plot_data <- actual_data |>
+  mutate(inc_decile = ntile(annual_inc, 10)) |>
+  group_by(home_ownership, inc_decile) |>
+  summarise(
+    median_inc = median(annual_inc, na.rm = TRUE),
+    q1 = quantile(annual_inc, 0.25, na.rm = TRUE),
+    q3 = quantile(annual_inc, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(q2_plot_data, 
+       aes(x = inc_decile, y = median_inc, 
+           group = home_ownership, color = home_ownership)) +
+  geom_line() +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = q1, ymax = q3), width = 0.2) +
+  labs(
+    title = "Median Annual Income Across Deciles by Home Ownership",
+    x = "Income Decile (1 = Lowest, 10 = Highest)",
+    y = "Median Annual Income",
+    color = "Home Ownership"
+  ) +
+  theme_minimal()
+```
+Interpretation of Findings:
+
 
 # Interpreter: Kyran Lakhia
 
 ### Q1: Which states are experiencing the lowest grades on average?
 
 ```{r}
-#
+# Summary table: average grade by state (bottom 10)
+state_avg <- actual_data |>
+  mutate(grade_num = as.numeric(grade)) |>
+  group_by(addr_state) |>
+  summarise(avg_grade = mean(grade_num, na.rm = TRUE)) |>
+  arrange(desc(avg_grade)) |>
+  slice_head(n = 10) |>
+  mutate(avg_grade_label = c("A","B","C","D","E","F","G")[round(avg_grade)])
+
+state_avg
 ```
+
+```{r}
+# Bar chart: states with worst average loan grades
+ggplot(state_avg, aes(x = reorder(addr_state, avg_grade), y = avg_grade, fill = avg_grade)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  scale_fill_gradient(low = "#fcae91", high = "#cb181d") +
+  scale_y_continuous(
+    breaks = 1:7,
+    labels = c("A","B","C","D","E","F","G")
+  ) +
+  labs(
+    title = "States with the Worst Average Loan Grades",
+    subtitle = "Loan grades range from A (best) to G (worst)",
+    x = "State",
+    y = "Average Loan Grade"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold")
+  )
+```
+
+The chart shows the states with the worst average loan grades. Since loan grades range from A (best) to G (worst), higher numeric averages indicate lower credit quality. However, the averages are still between B and C, which suggests that overall loan quality remains fairly strong even in the states with the lowest average grades.
 
 ### Q2: Is there a relationship between home ownership and purpose?
 
 ```{r}
-#
+# Summary table: contingency table of home ownership x purpose
+table(actual_data$home_ownership, actual_data$purpose)
+```
+
+```{r}
+# Stacked bar chart: loan purpose by home ownership status
+actual_data |>
+  filter(home_ownership %in% c("RENT", "MORTGAGE", "OWN")) |>
+  group_by(home_ownership, purpose) |>
+  summarise(count = n(), .groups = "drop") |>
+  ggplot(aes(x = home_ownership, y = count, fill = purpose)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Loan Purpose by Home Ownership Status",
+    x = "Home Ownership Status",
+    y = "Number of Loans",
+    fill = "Loan Purpose"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 ```
 
 # Orator 1: Ross Guinan
 
-### Q1: Is there a relationship between loan amount and loan grade?
+### Q1: 
 
+Summary:
 ```{r}
 #
 ```
 
-### Q2: Is there a correlation between DTI and purpose?
 
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
+```
+
+### Q2: 
+
+Summary:
 ```{r}
 #
+```
+
+
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
 ```
 
 # Orator 2: Carter Boxell
 
-### Q1: How do the average interest rates for each grade compare?
+### Q1: 
 
+Summary:
 ```{r}
 #
 ```
 
-### Q2: Is there a relationship between state and purpose of loan?
 
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
+```
+
+### Q2: 
+
+Summary:
 ```{r}
 #
 ```
+
+
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
+```
+
 
 # Deliverer: Emily Jones
 
-### Q1: Does the purpose of the loan correlate to the amount of the loan?
+### Q1: 
 
+Summary:
 ```{r}
 #
 ```
 
-### Q2: How does employment length relate to homeownership status?
 
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
+```
+
+### Q2: 
+
+Summary:
 ```{r}
 #
 ```
+
+
+Graph:
+```{r}
+
+```
+
+Interpretation of Findings:
+```{r}
+
+```
+
+
 
 # Follow-up Questions
 
@@ -283,18 +544,3 @@ GIVE A 2 PARAGRAPH SUMMARY.
 PARAGRAPH 1 SHOULD DESCRIBE WHAT YOU LEARNED ABOUT YOUR DATA FROM INVESTIGATING THE INITIAL QUESTIONS. DID YOU FIND ANYTHING UNUSUAL IN YOUR DATA? DID ANYTHING SURPRISE YOU? WHICH OF THE INITIAL QUESTIONS WERE HELPFUL IN LEADING YOU TO MORE QUESTIONS?
 
 PARAGRAPH 2 SHOULD SUMMARIZE WHAT YOU LEARNED FROM INVESTIGATING THE FOLLOW-UP QUESTIONS. WHY ARE THESE FOLLOW-UP QUESTIONS INTERESTING FOR INVESTIGATION? DESCRIBE THE TABLES/FIGURES YOU USED TO EXPLORE ANSWERS TO THESE FOLLOW-UP QUESTIONS? WHAT DID YOU LEARN FROM THE TABLES/FIGURES REGARDING THE FOLLOW-UP QUESTIONS YOU PROPOSED?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
