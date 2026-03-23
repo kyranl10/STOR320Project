@@ -16,7 +16,8 @@ suppressWarnings(library(corrr))
 suppressWarnings(library(tidyverse))
 suppressWarnings(library(car))
 suppressWarnings(library(gt))
-
+library(tidyr)
+library(funModeling)
 ```
 
 
@@ -59,6 +60,21 @@ RESEARCH MORE*
 
 ### Data Quality Report
 
+```{r}
+glimpse(actual_data)
+dim(actual_data)
+DataExplorer::introduce(actual_data)
+DataExplorer::plot_missing(actual_data)
+missing_tbl <- actual_data |>
+  summarise(across(everything(), ~ sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
+  arrange(desc(n_missing))
+```
+
+```{r}
+any(duplicated(actual_data))
+```
+
 ##Numerical Features
 ```{r}
 numeric_features <- actual_data |>
@@ -82,36 +98,29 @@ names(numeric_report_table) <- c("Feature", "Count", "% Miss.", "Cardinality", "
 
 numeric_report_table
 ```
+```{r}
+funModeling::plot_num(numeric_features)
+funModeling::profiling_num(numeric_features)
+```
+
 
 ```{r}
-# Function to count outliers using IQR method
-count_outliers <- function(x) {
+detect_outliers <- function(x) {
   Q1 <- quantile(x, 0.25, na.rm = TRUE)
   Q3 <- quantile(x, 0.75, na.rm = TRUE)
   IQR <- Q3 - Q1
-  sum(x < Q1 - 1.5 * IQR | x > Q3 + 1.5 * IQR, na.rm = TRUE)
+  lower <- Q1 - 1.5 * IQR
+  upper <- Q3 + 1.5 * IQR
+  sum(x < lower | x > upper, na.rm = TRUE)
 }
 
-# Apply to all numeric variables
-numeric_features <- actual_data |>
-  select(annual_inc, int_rate, loan_amnt, dti)
-
-outlier_summary <- data.frame(
-  Feature = names(numeric_features),
-  Outlier_Count = sapply(numeric_features, count_outliers),
-  Outlier_Pct = round(sapply(numeric_features, count_outliers) / nrow(actual_data) * 100, 2)
-)
-
-outlier_summary
-```
-
-```{r}
-numeric_features |>
-  pivot_longer(everything(), names_to = "variable", values_to = "value") |>
-  ggplot(aes(x = variable, y = value)) +
-  geom_boxplot() +
-  facet_wrap(~variable, scales = "free") +
-  theme_minimal()
+actual_data |>
+  select(annual_inc, int_rate, loan_amnt, dti) |>
+  summarise(across(everything(), detect_outliers)) |>
+  pivot_longer(everything(), 
+               names_to = "variable", 
+               values_to = "n_outliers") |>
+  gt()
 ```
 
 
@@ -138,18 +147,21 @@ funModeling::freq(categorical_features)
 
 The following issues were identified in the raw dataset and addressed during data cleaning:
 
-**Missing Values:** Several variables contained missing values. Key variables (`int_rate`, `loan_amnt`, `grade`, `home_ownership`, `purpose`, `term`, `addr_state`) had rows with NAs removed entirely since they are essential for all analyses. `emp_length` had 44,825 missing values and `annual_inc` had 4 missing values — both were retained in `actual_data` and are only filtered within specific question chunks that require them, preserving the maximum number of observations for unrelated analyses. All other variables had 0 missing values after cleaning.
+| Feature | Data Quality Issue | Proposed Handling Solution |
+| :--- | :--- | :--- |
+| annual_inc | 4 missing values (0.0005%) | Retain; filter within chunks requiring it |
+| annual_inc | 39,719 outliers; max $9,500,000 plausible | Valid outliers; apply clamp transformation |
+| int_rate | 6,308 outliers; range 5.32–28.99% realistic | Valid outliers; apply clamp transformation |
+| loan_amnt | No missing values; 0 outliers | No action needed |
+| dti | 81 outliers; max 9,999 likely invalid | Remove rows where dti > 100 |
+| emp_length | n/a present as level (44,825 / 5.05%) | Recoded to NA via str_squish and na_if |
+| addr_state | Cardinality 51 — expected (50 states + DC) | No action needed |
+| grade | Skewed toward B and C (56% combined) | Valid distribution; no action needed |
+| purpose | Rare categories <0.1% each | Consider collapsing into other |
+| home_ownership | OTHER/NONE/ANY represent <0.03% | Collapse into single OTHER category |
+| term | 70/30 split — imbalanced but realistic | Valid distribution; no action needed |
+| All character columns | Inconsistent spacing and blank-like values | str_squish, na_if, case_when standardization |
 
-**Duplicate Rows:** The dataset was checked for fully duplicated rows using `any(duplicated(loan))`, which returned `FALSE` — confirming no duplicates were present.
-
-**Inconsistent String Formatting:** All character columns were cleaned using `str_squish()` to remove extra whitespace, and blank-like values (`""`, `"NA"`, `"N/A"`, `"null"`, `"unknown"`) were standardized to `NA` using `na_if()` and `case_when()`. Case was standardized — grade, state, and home ownership to uppercase; purpose and term to lowercase.
-
-**purpose Formatting:** Loan purpose values contained underscores (e.g. `"debt_consolidation"`) which were replaced with spaces using `fct_relabel()` and `str_replace_all()` for cleaner display in plots and tables.
-
-**Factor Encoding:** Ordinal variables `grade` (A–G) and `term` (36 vs. 60 months) were encoded as ordered factors so R respects their natural ranking in models and visualizations. Nominal variables `home_ownership`, `purpose`, and `addr_state` were encoded as unordered factors.
-
-
-MENTION OUTLIERS
 
 
 ### Data Cleaning
@@ -157,11 +169,6 @@ To see the basic format of the data and get a sense of how many rows and columns
 ```{r}
 glimpse(actual_data)
 dim(actual_data)
-```
-
-```{r}
-suppressWarnings(DataExplorer::introduce(actual_data))
-suppressWarnings(DataExplorer::plot_missing(actual_data))
 ```
 
 ```{r}
@@ -195,28 +202,18 @@ actual_data <- actual_data |>
 ```
 
 
-Fix int_rate: remove % sign if present and convert to numeric, Encoding the factors, Replace underscores in purpose with spaces (aesthetic purposes)
 ```{r}
 actual_data <- actual_data |>
-  mutate(int_rate = as.numeric(gsub("%", "", int_rate)))
-
-actual_data <- actual_data |>
   mutate(
-    grade          = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
-    term           = factor(term,  levels = c("36 months","60 months"),     ordered = TRUE),
-    home_ownership = factor(home_ownership,
-                            levels = c("OWN","MORTGAGE","RENT","OTHER","NONE","ANY")),
-    purpose        = factor(purpose),
-    addr_state     = factor(addr_state),
+    grade      = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
+    term       = factor(term,  levels = c("36 months","60 months"), ordered = TRUE),
     emp_length = factor(emp_length,
-        levels = c("< 1 year", "1 year", "2 years", "3 years",
-                   "4 years","5 years", "6 years", "7 years", 
-                   "8 years", "9 years","10+ years"),
-        ordered = TRUE)
+                   levels = c("< 1 year", "1 year", "2 years", "3 years",
+                              "4 years", "5 years", "6 years", "7 years",
+                              "8 years", "9 years", "10+ years"),
+                   ordered = TRUE),
+    purpose    = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
   )
-
-actual_data <- actual_data |>
-  mutate(purpose = fct_relabel(purpose, ~ str_replace_all(.x, "_", " ")))
 ```
 
 
