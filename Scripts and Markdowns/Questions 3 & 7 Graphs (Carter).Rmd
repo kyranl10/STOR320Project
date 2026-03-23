@@ -4,11 +4,12 @@ author: "Kyran Lakhia"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-#
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
 library(readr)
 library(dplyr)
 library(ggplot2)
@@ -16,7 +17,9 @@ lc_data <- read_csv("lc_2016_2017.csv")
 lc_data$grade <- factor(lc_data$grade, levels = c("A", "B", "C", "D", "E", "F", "G"))
 lc_data$addr_state <- factor(lc_data$addr_state)
 lc_data$purpose <- factor(lc_data$purpose)
-Question 3 Chart:
+```
+
+```{r}
 ggplot(
   summarize(
     group_by(lc_data, grade),
@@ -30,7 +33,9 @@ ggplot(
     x = "Loan Grade",
     y = "Average Interest Rate"
   )
-Question 7 Chart:
+```
+
+```{r}
 ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
   geom_bar(position = "fill") +
   labs(
@@ -39,3 +44,5 @@ ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
     y = "Proportion of Loans",
     fill = "Loan Purpose"
   )
+```
+
