@@ -1,11 +1,14 @@
 ---
 title: "Exploratory Data Analysis"
-author: "STOR 320.(01 OR 02) Group PLACE_GROUP_NUMBER_HERE (Ex: STOR 320.01 Group 12)"
+author: 'STOR 320.(01 OR 02) Group PLACE_GROUP_NUMBER_HERE (Ex: STOR 320.01 Group
+  12)'
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 suppressWarnings(library(tidyverse))
 suppressWarnings(library(janitor))      
@@ -16,12 +19,11 @@ suppressWarnings(library(corrr))
 suppressWarnings(library(tidyverse))
 suppressWarnings(library(car))
 suppressWarnings(library(gt))
-library(tidyr)
 library(funModeling)
 ```
 
 
-```{r setup, include=FALSE}
+```{r}
 # Import Data Below
 loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv")
 ```
@@ -39,6 +41,11 @@ summary(actual_data)
 ```
 
 ###Statement of the business problem
+
+**Redo
+
+Despite their best efforts, LendingClub is approving too many borrowers who default, scaring away potential investors. LendingClub has hired us to analyze their loan data and identify patterns that could help them better predict which borrowers are likely to default. By understanding the relationships between borrower characteristics, loan attributes, and loan performance, we can provide actionable insights to improve LendingClub's credit risk assessment and reduce default rate
+
 
 
 ### Data Dictionary
@@ -65,10 +72,13 @@ glimpse(actual_data)
 dim(actual_data)
 DataExplorer::introduce(actual_data)
 DataExplorer::plot_missing(actual_data)
+
 missing_tbl <- actual_data |>
   summarise(across(everything(), ~ sum(is.na(.)))) |>
   pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
   arrange(desc(n_missing))
+
+missing_tbl
 ```
 
 ```{r}
@@ -149,87 +159,96 @@ The following issues were identified in the raw dataset and addressed during dat
 
 | Feature | Data Quality Issue | Proposed Handling Solution |
 | :--- | :--- | :--- |
-| annual_inc | 4 missing values (0.0005%) | Retain; filter within chunks requiring it |
-| annual_inc | 39,719 outliers; max $9,500,000 plausible | Valid outliers; apply clamp transformation |
-| int_rate | 6,308 outliers; range 5.32–28.99% realistic | Valid outliers; apply clamp transformation |
-| loan_amnt | No missing values; 0 outliers | No action needed |
-| dti | 81 outliers; max 9,999 likely invalid | Remove rows where dti > 100 |
-| emp_length | n/a present as level (44,825 / 5.05%) | Recoded to NA via str_squish and na_if |
-| addr_state | Cardinality 51 — expected (50 states + DC) | No action needed |
-| grade | Skewed toward B and C (56% combined) | Valid distribution; no action needed |
-| purpose | Rare categories <0.1% each | Consider collapsing into other |
-| home_ownership | OTHER/NONE/ANY represent <0.03% | Collapse into single OTHER category |
-| term | 70/30 split — imbalanced but realistic | Valid distribution; no action needed |
-| All character columns | Inconsistent spacing and blank-like values | str_squish, na_if, case_when standardization |
+| annual_inc | 4 missing values (0.0005%) | Retain in dataset; drop only within chunks that require it |
+| annual_inc | 39,719 outliers via IQR; max $9,500,000; skewness 44.48, kurtosis 4,811 — severe right skew | Valid outliers (high earners exist); apply clamp transformation (Q1 - 1.5×IQR, Q3 + 1.5×IQR) |
+| int_rate | 6,308 outliers via IQR; range 5.32–28.99% realistic; slight right skew (0.43) | Valid outliers (higher rates reflect riskier borrowers); apply clamp transformation |
+| loan_amnt | 0 missing values; 0 outliers; range $500–$35,000 within LendingClub limits | No action needed |
+| dti | 81 outliers via IQR; max of 9,999 is almost certainly invalid; skewness 441, kurtosis 256,128 | Invalid outlier; remove rows where dti > 100 |
+| emp_length | `n/a` present as a factor level (44,825 rows / 5.05%) — hidden missing values | Recode `n/a` to `NA`; retain rows for analyses not requiring emp_length |
+| addr_state | Cardinality of 51 — expected (50 states + DC); no unexpected levels | No action needed |
+| grade | Cardinality of 7 (A–G); skewed toward B (28.68%) and C (27.71%) | Valid distribution; encode as ordered factor A→G |
+| purpose | Cardinality of 14; rare categories renewable_energy (0.06%) and educational (0.05%) | Consider collapsing rare categories into `other` for cleaner analysis |
+| home_ownership | OTHER (182, 0.02%), NONE (50, 0.01%), ANY (3, 0%) represent <0.03% combined | Collapse OTHER, NONE, ANY into single OTHER category |
+| term | Cardinality of 2; 70/30 split between 36 and 60 months — imbalanced but realistic | Valid distribution; encode as ordered factor |
+| All character columns | Potential inconsistent spacing and blank-like values (e.g. `n/a` in emp_length) | Apply str_squish(), na_if(), and case_when() standardization |
 
 
 
 ### Data Cleaning
-To see the basic format of the data and get a sense of how many rows and columns we have.
-```{r}
-glimpse(actual_data)
-dim(actual_data)
-```
 
 ```{r}
-(missing_tbl <- actual_data |>
-    summarise(across(everything(), ~ sum(is.na(.)))) |>
-    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
-    arrange(desc(n_missing)))
-```
-
-Check to see if there are any duplicated data rows:
-```{r}
-any(duplicated(actual_data))
-```
-
-
-Removing all the duplicates and keeping the first occurrence:
-```{r}
-actual_data <- actual_data[!duplicated(actual_data), ]
-```
-
-Cleaning string variables
-```{r}
+# Step 1: Recode n/a in emp_length to NA and clean blank-like string values
 actual_data <- actual_data |>
+  mutate(across(where(is.factor), ~ fct_recode(., NULL = "n/a"))) |>
   mutate(across(where(is.character), ~ str_squish(.))) |>
   mutate(across(where(is.character), ~ na_if(.x, ""))) |>
   mutate(across(where(is.character),
-                ~ case_when(
-                  .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
-                  TRUE ~ .x
-                )))
-```
+    ~ case_when(
+      .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
+      TRUE ~ .x
+    )))
 
+# Step 2: Remove duplicate rows (keep first occurrence)
+actual_data <- actual_data[!duplicated(actual_data), ]
 
-```{r}
+# Step 3: Remove invalid dti outliers
+actual_data <- actual_data |>
+  filter(dti <= 100)
+
+# Step 4: Collapse rare home_ownership levels into OTHER
+actual_data <- actual_data |>
+  mutate(home_ownership = fct_collapse(home_ownership,
+    OTHER = c("OTHER", "NONE", "ANY")
+  ))
+
+# Step 5: Ordered factor encoding
 actual_data <- actual_data |>
   mutate(
-    grade      = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
-    term       = factor(term,  levels = c("36 months","60 months"), ordered = TRUE),
+    grade = factor(grade, 
+                   levels = c("A","B","C","D","E","F","G"), 
+                   ordered = TRUE),
+    term = factor(term,  
+                  levels = c("36 months","60 months"), 
+                  ordered = TRUE),
     emp_length = factor(emp_length,
                    levels = c("< 1 year", "1 year", "2 years", "3 years",
                               "4 years", "5 years", "6 years", "7 years",
                               "8 years", "9 years", "10+ years"),
                    ordered = TRUE),
-    purpose    = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
+    purpose = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
   )
-```
 
+# Step 6: Apply clamp transformation to valid outliers
+clamp <- function(x) {
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR_val <- Q3 - Q1
+  lower <- Q1 - 1.5 * IQR_val
+  upper <- Q3 + 1.5 * IQR_val
+  pmax(pmin(x, upper), lower)
+}
 
-Drop rows missing key variables:
-```{r}
 actual_data <- actual_data |>
-  drop_na()
-```
+  mutate(
+    annual_inc = clamp(annual_inc),
+    int_rate   = clamp(int_rate)
+  )
 
-```{r}
+# Step 7: Drop rows with NAs in key variables
+# (retain rows missing only emp_length or annual_inc for unrelated analyses)
+actual_data <- actual_data |>
+  drop_na(int_rate, loan_amnt, grade, home_ownership, 
+          purpose, term, addr_state, dti)
+
+# Step 8: Confirm final state of data
+glimpse(actual_data)
+dim(actual_data)
+
 (missing_tbl_final <- actual_data |>
-    summarise(across(everything(), ~ sum(is.na(.)))) |>
-    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
-    arrange(desc(n_missing)))
+  summarise(across(everything(), ~ sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
+  arrange(desc(n_missing)))
 ```
-
 
 
 # Creator: Tracy Huang
@@ -396,45 +415,115 @@ actual_data |>
 
 # Orator 1: Ross Guinan
 
-### Q1: 
+### Q1: Is there a relationship between loan amount and loan grade?
 
 Summary:
 ```{r}
-#
+grade_table <- actual_data |>
+  group_by(grade) |>
+  summarise(
+    n = n(),
+    mean_loan_amnt = round(mean(loan_amnt, na.rm = TRUE), 2),
+    median_loan_amnt = round(median(loan_amnt, na.rm = TRUE), 2),
+    sd_loan_amnt = round(sd(loan_amnt, na.rm = TRUE), 2),
+    q1 = round(quantile(loan_amnt, 0.25, na.rm = TRUE), 2),
+    q3 = round(quantile(loan_amnt, 0.75, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  arrange(grade)
+
+grade_table |> gt()
 ```
 
 
 Graph:
 ```{r}
+q1_boxplot <- ggplot(actual_data, aes(x = grade, y = loan_amnt)) +
+  geom_boxplot()
 
+q1_boxplot
 ```
 
 Interpretation of Findings:
-```{r}
 
-```
 
-### Q2: 
+
+### Q2: Is there a correlation between DTI (debt-to-income) and purpose?
 
 Summary:
 ```{r}
-#
+ross_q2_table <- actual_data |>
+  group_by(purpose) |>
+  summarise(
+    n = n(),
+    mean_dti = round(mean(dti, na.rm = TRUE), 2),
+    median_dti = round(median(dti, na.rm = TRUE), 2),
+    sd_dti = round(sd(dti, na.rm = TRUE), 2),
+    q1 = round(quantile(dti, 0.25, na.rm = TRUE), 2),
+    q3 = round(quantile(dti, 0.75, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  arrange(purpose)
+
+ross_q2_table |> gt()
 ```
 
 
 Graph:
 ```{r}
+capped_dti <- actual_data[actual_data$dti <= 50,]
+q2_boxplot <- ggplot(capped_dti, aes(x = purpose, y = dti)) +
+  geom_boxplot() +
+  coord_flip()
+  
 
+q2_boxplot
 ```
 
 Interpretation of Findings:
-```{r}
 
-```
+
 
 # Orator 2: Carter Boxell
 
-### Q1: 
+### Q1: How does the average interest rates for each grade compare
+
+Summary:
+```{r}
+summary_table <- actual_data %>%
+  dplyr::group_by(grade) %>%
+  dplyr::summarize(
+  avg_int_rate = mean(int_rate, na.rm = TRUE)) %>%
+  arrange(grade)
+
+summary_table
+```
+
+Graph:
+```{r}
+ggplot(
+  dplyr::summarize(
+    dplyr::group_by(actual_data, grade),
+    avg_int_rate = mean(int_rate, na.rm = TRUE)
+  ),
+  aes(x = grade, y = avg_int_rate)
+) +
+  geom_col() +
+  labs(
+    title = "Average Interest Rate by Loan Grade",
+    x = "Loan Grade",
+    y = "Average Interest Rate"
+  )
+
+```
+
+Interpretation of Findings:
+
+
+
+
+
+### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
 ```{r}
@@ -444,70 +533,132 @@ Summary:
 
 Graph:
 ```{r}
-
+ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Proportion of Loan Purposes by State",
+    x = "State",
+    y = "Proportion of Loans",
+    fill = "Loan Purpose"
+  )
 ```
 
 Interpretation of Findings:
-```{r}
-
-```
-
-### Q2: 
-
-Summary:
-```{r}
-#
-```
 
 
-Graph:
-```{r}
 
-```
-
-Interpretation of Findings:
-```{r}
-
-```
 
 
 # Deliverer: Emily Jones
 
-### Q1: 
+### Q1: Does the purpose of the loan correlate to the amount of the loan?
 
 Summary:
 ```{r}
-#
+library(scales)
+loan_summary_table <- actual_data %>%
+  filter(!is.na(purpose), !is.na(loan_amnt)) %>%
+  group_by(purpose) %>%
+  summarise(
+    n = n(),                                    
+    mean_loan = mean(loan_amnt),
+    median_loan = median(loan_amnt)
+  ) %>%
+  arrange(desc(mean_loan)) %>% 
+  mutate(median_loan = dollar(median_loan)) |> 
+  mutate(mean_loan 
+         = dollar(mean_loan)) %>% 
+  rename(
+    "Loan Purpose" = purpose,
+    "Number of Loans" = n,
+    "Average Loan Amount" = mean_loan,
+    "Median Loan Amount" = median_loan,
+  ) |> gt()
+
+loan_summary_table
 ```
 
 
 Graph:
 ```{r}
+#graph 1
+bar_data <- actual_data |> 
+  filter(!is.na(purpose), !is.na(loan_amnt)) |> 
+  group_by(purpose) |> 
+  summarise(mean_loan = mean(loan_amnt)) |> 
+  arrange(mean_loan)
 
+ggplot(bar_data, aes(x = reorder(purpose, mean_loan), y = mean_loan, fill = mean_loan)) +
+  coord_flip() +
+  geom_col()+
+  labs(
+    title = "Average Loan Amount by Purpose",
+    x = "Loan Purpose",
+    y = "Average Loan Amount ($)",
+    fill = "Avg Amount")
+
+#graph 2
+bar_data <- actual_data |> 
+  filter(!is.na(purpose), !is.na(loan_amnt)) |> 
+  group_by(purpose) |> 
+  summarise(median_loan = median(loan_amnt)) |> 
+  arrange(median_loan)
+
+ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = median_loan)) +
+  coord_flip() +
+  geom_col()+
+  labs(
+    title = "Average Loan Amount by Purpose",
+    x = "Loan Purpose",
+    y = "Median Loan Amount ($)",
+    fill = "Avg Amount")
 ```
 
 Interpretation of Findings:
-```{r}
 
-```
+
+
 
 ### Q2: 
 
 Summary:
 ```{r}
-#
+summary_table <- actual_data %>%
+  filter(!is.na(emp_length), !is.na(home_ownership)) %>%
+  group_by(emp_length, home_ownership) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(emp_length) %>%
+  mutate(percentage = count / sum(count) * 100) %>%
+  select(-count) %>%
+  pivot_wider(names_from = home_ownership, values_from = percentage)
+
+summary_table
 ```
 
 
 Graph:
 ```{r}
+emp_levels <- c("< 1 year", "1 year", "2 years", "3 years", "4 years", 
+                "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years")
 
+actual_data$emp_length <- factor(actual_data$emp_length, levels = emp_levels)
+
+ggplot(actual_data, aes(x = emp_length, fill = home_ownership)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set2") + 
+  labs(
+    title = "Homeownership Trends by Employment Length",
+    x = "Years of Employment",
+    y = "Proportion of Borrowers",
+    fill = "Home Status"
+  )+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 Interpretation of Findings:
-```{r}
 
-```
+
 
 
 
@@ -515,10 +666,13 @@ Interpretation of Findings:
 
 ### New Questions Based Off Initial Investigation
 
-- Q1: WRITE_QUESTION_HERE
-- Q2: WRITE_QUESTION_HERE
-- Q3: WRITE_QUESTION_HERE 
-- Q4: WRITE_QUESTION_HERE
+- Q1: Which borrower and loan characteristics are the most significant predictors of loan grade, and how does model performance change as we move from simple to complex regression models?
+
+- Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+
+- Q3: Within Grade B and C loans (which make up over 56% of the portfolio), what combination of DTI, employment length, and home ownership best separates defaulters from non-defaulters?
+
+- Q4: Are 60-month term loans more likely to default than 36-month loans within the same grade, and does this gap widen at lower grades (D–G)?
 
 ### Investigation of Follow-up Questions
 
@@ -526,10 +680,13 @@ GIVE WHAT 2 QUESTIONS YOU ATTEMPTED TO INVESTIGATE FURTHER IN COMPLETE SENTENCES
 
 SHOW AT LEAST 2 TABLES OR FIGURES BELOW THAT EXPLORE ANSWERS FOR THE QUESTIONS YOU ARE INVESTIGATING FURTHER.
 
+
+Q1: Which borrower and loan characteristics are the most significant predictors of loan grade, and how does model performance change as we move from simple to complex regression models?
 ```{r}
-#
+
 ```
 
+Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
 ```{r}
 #
 ```
