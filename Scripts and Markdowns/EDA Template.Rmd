@@ -18,6 +18,9 @@ suppressWarnings(library(car))
 suppressWarnings(library(gt))
 library(tidyr)
 library(funModeling)
+library(readr)
+library(dplyr)
+library(ggplot2)
 ```
 
 
@@ -434,7 +437,14 @@ Interpretation of Findings:
 
 # Orator 2: Carter Boxell
 
-### Q1: 
+```{r}
+lc_data <- read_csv("lc_2016_2017.csv")
+lc_data$grade <- factor(lc_data$grade, levels = c("A", "B", "C", "D", "E", "F", "G"))
+lc_data$addr_state <- factor(lc_data$addr_state)
+lc_data$purpose <- factor(lc_data$purpose)
+```
+
+### Q1: How do the average interest rates for each grade compare?
 
 Summary:
 ```{r}
@@ -444,7 +454,19 @@ Summary:
 
 Graph:
 ```{r}
-
+ggplot(
+  dplyr::summarize(
+    dplyr::group_by(lc_data, grade),
+    avg_int_rate = mean(int_rate, na.rm = TRUE)
+  ),
+  aes(x = grade, y = avg_int_rate)
+) +
+  geom_col() +
+  labs(
+    title = "Average Interest Rate by Loan Grade",
+    x = "Loan Grade",
+    y = "Average Interest Rate"
+  )
 ```
 
 Interpretation of Findings:
@@ -452,7 +474,7 @@ Interpretation of Findings:
 
 ```
 
-### Q2: 
+### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
 ```{r}
@@ -462,7 +484,14 @@ Summary:
 
 Graph:
 ```{r}
-
+ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Proportion of Loan Purposes by State",
+    x = "State",
+    y = "Proportion of Loans",
+    fill = "Loan Purpose"
+  )
 ```
 
 Interpretation of Findings:
