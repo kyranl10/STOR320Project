@@ -18,6 +18,9 @@ suppressWarnings(library(car))
 suppressWarnings(library(gt))
 library(tidyr)
 library(funModeling)
+library(readr)
+library(dplyr)
+library(ggplot2)
 ```
 
 
@@ -434,25 +437,57 @@ Interpretation of Findings:
 
 # Orator 2: Carter Boxell
 
-### Q1: 
+```{r}
+lc_data <- actual_data
+lc_data$grade <- factor(lc_data$grade, levels = c("A", "B", "C", "D", "E", "F", "G"))
+lc_data$addr_state <- factor(lc_data$addr_state)
+lc_data$purpose <- factor(lc_data$purpose)
+```
+
+### Q1: How do the average interest rates for each grade compare?
 
 Summary:
 ```{r}
-#
+summary_table <- lc_data %>%
+  dplyr::group_by(grade) %>%
+  dplyr::summarize(
+    avg_int_rate = mean(int_rate, na.rm = TRUE)
+  ) %>%
+  arrange(grade)
+
+summary_table
 ```
 
 
 Graph:
 ```{r}
-
+ggplot(
+  dplyr::summarize(
+    dplyr::group_by(lc_data, grade),
+    avg_int_rate = mean(int_rate, na.rm = TRUE)
+  ),
+  aes(x = grade, y = avg_int_rate)
+) +
+  geom_col() +
+  labs(
+    title = "Average Interest Rate by Loan Grade",
+    x = "Loan Grade",
+    y = "Average Interest Rate"
+  )
 ```
 
 Interpretation of Findings:
-```{r}
 
-```
+Loan grade is strongly associated with average interest rates.
 
-### Q2: 
+There is a clear upward trend in interest rates as loan grade worsens from A to G, indicating a strong relationship between credit risk and borrowing cost.
+Lower-grade loans have substantially higher interest rates: the average rate increases from 6.92% for grade A to 29.96% for grade G, a difference of about 23 percentage points, meaning grade G loans have interest rates more than 4 times higher than grade A loans.
+The increase is gradual but significant across each step. For example, rates rise from about 10.38% (B) to 14.01% (C) and continue steadily up through 18.44% (D) and 23.28% (E).
+This consistent pattern suggests a strong, monotonic relationship rather than random variation or irregular jumps between categories.
+
+Overall, loan grade appears to be a major factor linked to interest rates, with higher-risk grades consistently associated with substantially higher borrowing costs.
+
+### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
 ```{r}
@@ -462,7 +497,14 @@ Summary:
 
 Graph:
 ```{r}
-
+ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Proportion of Loan Purposes by State",
+    x = "State",
+    y = "Proportion of Loans",
+    fill = "Loan Purpose"
+  )
 ```
 
 Interpretation of Findings:
