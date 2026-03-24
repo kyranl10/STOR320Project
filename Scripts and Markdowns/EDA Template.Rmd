@@ -23,13 +23,13 @@ library(funModeling)
 library(broom)
 ```
 
-
 ```{r}
 # Import Data Below
 loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv")
 ```
 
 Subset of actual dataset of interest:
+
 ```{r}
 actual_data <- loan_dataset_full |>
   select(annual_inc, int_rate, loan_amnt, emp_length, dti,
@@ -43,17 +43,16 @@ summary(actual_data)
 
 ###Statement of the business problem
 
-**Redo
+\*\*Redo
 
 Despite their best efforts, LendingClub is approving too many borrowers who default, scaring away potential investors. LendingClub has hired us to analyze their loan data and identify patterns that could help them better predict which borrowers are likely to default. By understanding the relationships between borrower characteristics, loan attributes, and loan performance, we can provide actionable insights to improve LendingClub's credit risk assessment and reduce default rate
 
-
-
 ### Data Dictionary
-RESEARCH MORE*
+
+RESEARCH MORE\*
 
 | Variable | Type | What it represents |
-| :--- | :---: | :--- |
+|:---------------------|:--------------------------:|:---------------------|
 | int_rate | Numeric (continuous) | Interest rate on the loan |
 | loan_amnt | Numeric (continuous) | Amount of the loan issued |
 | annual_inc | Numeric (continuous) | Annual income of the borrower |
@@ -64,7 +63,6 @@ RESEARCH MORE*
 | home_ownership | Nominal factor | Borrower's home ownership status |
 | addr_state | Nominal factor | State of the borrower |
 | term | Ordinal factor | Length of the loan (36 or 60 months) |
-
 
 ### Data Quality Report
 
@@ -87,6 +85,7 @@ any(duplicated(actual_data))
 ```
 
 ##Numerical Features
+
 ```{r}
 numeric_features <- actual_data |>
   select_if(is.numeric)
@@ -109,11 +108,11 @@ names(numeric_report_table) <- c("Feature", "Count", "% Miss.", "Cardinality", "
 
 numeric_report_table
 ```
+
 ```{r}
 funModeling::plot_num(numeric_features)
 funModeling::profiling_num(numeric_features)
 ```
-
 
 ```{r}
 detect_outliers <- function(x) {
@@ -133,7 +132,6 @@ actual_data |>
                values_to = "n_outliers") |>
   gt()
 ```
-
 
 #### Categorical Features
 
@@ -159,21 +157,19 @@ funModeling::freq(categorical_features)
 The following issues were identified in the raw dataset and addressed during data cleaning:
 
 | Feature | Data Quality Issue | Proposed Handling Solution |
-| :--- | :--- | :--- |
+|:-----------------------|:-----------------------|:-----------------------|
 | annual_inc | 4 missing values (0.0005%) | Retain in dataset; drop only within chunks that require it |
-| annual_inc | 39,719 outliers via IQR; max $9,500,000; skewness 44.48, kurtosis 4,811 — severe right skew | Valid outliers (high earners exist); apply clamp transformation (Q1 - 1.5×IQR, Q3 + 1.5×IQR) |
+| annual_inc | 39,719 outliers via IQR; max \$9,500,000; skewness 44.48, kurtosis 4,811 — severe right skew | Valid outliers (high earners exist); apply clamp transformation (Q1 - 1.5×IQR, Q3 + 1.5×IQR) |
 | int_rate | 6,308 outliers via IQR; range 5.32–28.99% realistic; slight right skew (0.43) | Valid outliers (higher rates reflect riskier borrowers); apply clamp transformation |
-| loan_amnt | 0 missing values; 0 outliers; range $500–$35,000 within LendingClub limits | No action needed |
-| dti | 81 outliers via IQR; max of 9,999 is almost certainly invalid; skewness 441, kurtosis 256,128 | Invalid outlier; remove rows where dti > 100 |
+| loan_amnt | 0 missing values; 0 outliers; range \$500–\$35,000 within LendingClub limits | No action needed |
+| dti | 81 outliers via IQR; max of 9,999 is almost certainly invalid; skewness 441, kurtosis 256,128 | Invalid outlier; remove rows where dti \> 100 |
 | emp_length | `n/a` present as a factor level (44,825 rows / 5.05%) — hidden missing values | Recode `n/a` to `NA`; retain rows for analyses not requiring emp_length |
 | addr_state | Cardinality of 51 — expected (50 states + DC); no unexpected levels | No action needed |
 | grade | Cardinality of 7 (A–G); skewed toward B (28.68%) and C (27.71%) | Valid distribution; encode as ordered factor A→G |
 | purpose | Cardinality of 14; rare categories renewable_energy (0.06%) and educational (0.05%) | Consider collapsing rare categories into `other` for cleaner analysis |
-| home_ownership | OTHER (182, 0.02%), NONE (50, 0.01%), ANY (3, 0%) represent <0.03% combined | Collapse OTHER, NONE, ANY into single OTHER category |
+| home_ownership | OTHER (182, 0.02%), NONE (50, 0.01%), ANY (3, 0%) represent \<0.03% combined | Collapse OTHER, NONE, ANY into single OTHER category |
 | term | Cardinality of 2; 70/30 split between 36 and 60 months — imbalanced but realistic | Valid distribution; encode as ordered factor |
 | All character columns | Potential inconsistent spacing and blank-like values (e.g. `n/a` in emp_length) | Apply str_squish(), na_if(), and case_when() standardization |
-
-
 
 ### Data Cleaning
 
@@ -250,12 +246,12 @@ dim(actual_data)
   arrange(desc(n_missing)))
 ```
 
-
 # Creator: Tracy Huang
 
 ### Q1: Can interest rate by predicted based on loan term and loan grade?
 
 Summary:
+
 ```{r}
 q1_table <- actual_data |>
   group_by(grade, term) |>
@@ -274,6 +270,7 @@ q1_table |> gt()
 ```
 
 Graph:
+
 ```{r}
 actual_data |>
   ggplot(aes(x = grade, y = int_rate, fill = term)) +
@@ -289,11 +286,10 @@ actual_data |>
 
 Interpretation of Findings: Interest rate is almost perfectly explained by grade and term together. Grade A loans average 7.22–8.00%, while grade G loans average 23.40–25.18%, a spread of over 17 percentage points. Within each grade, 60-month loans consistently carry slightly higher rates than 36-month loans, though the gap is modest (under 1%). The monotonic increase from A through G confirms that LendingClub's internal grading system is highly consistent with its pricing engine. For risk assessment purposes, grade is the dominant pricing signal, and loan term acts as a secondary risk premium on top of it.
 
-
-
 ### Q2: Can home ownership status be predicted using borrower income and employment length?
 
 Summary:
+
 ```{r}
 q2_table <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
@@ -310,8 +306,8 @@ q2_table <- actual_data |>
 q2_table |> gt()
 ```
 
+Graph:
 
-Graph: 
 ```{r}
 q2_plot_data <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
@@ -337,8 +333,8 @@ ggplot(q2_plot_data,
   ) +
   theme_minimal()
 ```
-Interpretation of Findings: Income alone does a poor job of separating ownership groups, all four categories (RENT, MORTGAGE, OWN, OTHER) track nearly identical income trajectories across all 10 deciles, with medians converging tightly from roughly $27k at decile 1 to $147k at decile 10. This means income does not cleanly predict whether a borrower rents or owns. However, the homeownership breakdown by employment length (in Emily's Q2 follow-up) adds important context: as employment length increases, the share of mortgage holders rises steadily from 35% (under 1 year) to 62% (10+ years), while renters fall from 56% to 28%. Together, this suggests employment stability is a better differentiator of housing status than income level alone, and that renters — who are often earlier in their careers may represent a higher-mobility, higher-turnover risk segment for LendingClub.
 
+Interpretation of Findings: Income alone does a poor job of separating ownership groups, all four categories (RENT, MORTGAGE, OWN, OTHER) track nearly identical income trajectories across all 10 deciles, with medians converging tightly from roughly \$27k at decile 1 to \$147k at decile 10. This means income does not cleanly predict whether a borrower rents or owns. However, the homeownership breakdown by employment length (in Emily's Q2 follow-up) adds important context: as employment length increases, the share of mortgage holders rises steadily from 35% (under 1 year) to 62% (10+ years), while renters fall from 56% to 28%. Together, this suggests employment stability is a better differentiator of housing status than income level alone, and that renters — who are often earlier in their careers may represent a higher-mobility, higher-turnover risk segment for LendingClub.
 
 # Interpreter: Kyran Lakhia
 
@@ -415,12 +411,12 @@ actual_data |>
 
 Interpretation: Across all three major ownership groups, debt consolidation dominates loan purpose, accounting for roughly 60% of loans regardless of whether the borrower rents, has a mortgage, or owns outright. Credit cards are the second most common purpose across all groups. One notable difference: renters show a disproportionately low share of home improvement loans compared to mortgage holders, which is intuitive since renters have less incentive to invest in property upgrades. The near-uniform distribution of purposes across ownership types suggests that home ownership is not a strong differentiator of why someone borrows, but it may still be meaningful for predicting repayment behavior, since mortgage holders tend to have more financial obligations and stability.
 
-
 # Orator 1: Ross Guinan
 
 ### Q1: Is there a relationship between loan amount and loan grade?
 
 Summary:
+
 ```{r}
 grade_table <- actual_data |>
   group_by(grade) |>
@@ -438,21 +434,31 @@ grade_table <- actual_data |>
 grade_table |> gt()
 ```
 
-
 Graph:
+
 ```{r}
 q1_boxplot <- ggplot(actual_data, aes(x = grade, y = loan_amnt)) +
-  geom_boxplot()
+  geom_boxplot() + 
+  labs(
+    title = "Loan Amount by Loan Grade",
+    x = "Loan Grade",
+    y = "Loan Amount"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+  )
 
 q1_boxplot
 ```
 
-Interpretation of Findings: There is a clear, positive relationship between loan grade and loan amount — but it runs in the counterintuitive direction. Grade A borrowers (the most creditworthy) have a median loan of $12,000, while grade G borrowers (the riskiest) have a median of $20,000. This means riskier borrowers are taking out larger loans, which compounds LendingClub's exposure. The boxplots also show increasing spread and higher upper quartiles as grade worsens, confirming that high-grade borrowers tend to take smaller, more standardized loans while low-grade borrowers show more variability. From a portfolio management perspective, the combination of lower creditworthiness and larger loan sizes in grades E–G represents a concentrated risk that warrants careful underwriting scrutiny.
-
+Interpretation of Findings: There is a clear, positive relationship between loan grade and loan amount — but it runs in the counterintuitive direction. Grade A borrowers (the most creditworthy) have a median loan of \$12,000, while grade G borrowers (the riskiest) have a median of \$20,000. This means riskier borrowers are taking out larger loans, which compounds LendingClub's exposure. The boxplots also show increasing spread and higher upper quartiles as grade worsens, confirming that high-grade borrowers tend to take smaller, more standardized loans while low-grade borrowers show more variability. From a portfolio management perspective, the combination of lower creditworthiness and larger loan sizes in grades E–G represents a concentrated risk that warrants careful underwriting scrutiny.
 
 ### Q2: Is there a correlation between DTI (debt-to-income) and purpose?
 
 Summary:
+
 ```{r}
 ross_q2_table <- actual_data |>
   group_by(purpose) |>
@@ -470,8 +476,8 @@ ross_q2_table <- actual_data |>
 ross_q2_table |> gt()
 ```
 
-
 Graph:
+
 ```{r}
 capped_dti <- actual_data[actual_data$dti <= 50,]
 q2_boxplot <- ggplot(capped_dti, aes(x = purpose, y = dti)) +
@@ -484,12 +490,12 @@ q2_boxplot
 
 Interpretation of Findings: Debt consolidation and credit card loans — which together make up over 82% of all loans — show the highest median DTI values, around 18–19. This makes intuitive sense: borrowers already carrying heavy debt loads are turning to LendingClub to restructure or pay off existing obligations. In contrast, car loans, small business loans, and educational loans show notably lower DTI medians (around 11–14), suggesting these borrowers come in with lighter existing debt burdens. High-DTI borrowers concentrated in debt consolidation are a particular risk flag and they are already financially stretched, and if the consolidation loan fails to meaningfully reduce their obligations, the probability of default rises. LendingClub should weight DTI heavily when evaluating consolidation loan applications.
 
-
 # Orator 2: Carter Boxell
 
 ### Q1: How does the average interest rates for each grade compare
 
 Summary:
+
 ```{r}
 summary_table <- actual_data %>%
   dplyr::group_by(grade) %>%
@@ -501,6 +507,7 @@ summary_table
 ```
 
 Graph:
+
 ```{r}
 ggplot(
   dplyr::summarize(
@@ -518,18 +525,18 @@ ggplot(
 
 ```
 
-Interpretation of Findings: 
-
+Interpretation of Findings:
 
 ### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
+
 ```{r}
 #
 ```
 
-
 Graph:
+
 ```{r}
 ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
   geom_bar(position = "fill") +
@@ -543,15 +550,12 @@ ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
 
 Interpretation of Findings:
 
-
-
-
-
 # Deliverer: Emily Jones
 
 ### Q1: Does the purpose of the loan correlate to the amount of the loan?
 
 Summary:
+
 ```{r}
 library(scales)
 loan_summary_table <- actual_data %>%
@@ -576,8 +580,8 @@ loan_summary_table <- actual_data %>%
 loan_summary_table
 ```
 
-
 Graph:
+
 ```{r}
 #graph 1
 bar_data <- actual_data |> 
@@ -612,13 +616,12 @@ ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = 
     fill = "Avg Amount")
 ```
 
-Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around $15,000–$15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around $6,300–$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a higher median ($12,575) relative to their mean ($14,798), suggesting a left-skewed distribution where a cluster of smaller house loans pulls the median down. 
+Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around \$15,000–\$15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around \$6,300–\$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a higher median (\$12,575) relative to their mean (\$14,798), suggesting a left-skewed distribution where a cluster of smaller house loans pulls the median down.
 
-
-
-### Q2: 
+### Q2:
 
 Summary:
+
 ```{r}
 summary_table <- actual_data %>%
   filter(!is.na(emp_length), !is.na(home_ownership)) %>%
@@ -632,8 +635,8 @@ summary_table <- actual_data %>%
 summary_table
 ```
 
-
 Graph:
+
 ```{r}
 emp_levels <- c("< 1 year", "1 year", "2 years", "3 years", "4 years", 
                 "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years")
@@ -659,20 +662,19 @@ Interpretation of Findings: TThe data reveals a compelling and practically signi
 
 ### New Questions Based Off Initial Investigation
 
-- Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
+-   Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
 
-- Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of interest rate remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+-   Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of interest rate remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
 
-- Q3: Within Grade B and C loans (which make up over 56% of the portfolio), what combination of DTI, employment length, and home ownership best separates defaulters from non-defaulters?
+-   Q3: Within Grade B and C loans (which make up over 56% of the portfolio), what combination of DTI, employment length, and home ownership best separates defaulters from non-defaulters?
 
-- Q4: Are 60-month term loans more likely to default than 36-month loans within the same grade, and does this gap widen at lower grades (D–G)?
+-   Q4: Are 60-month term loans more likely to default than 36-month loans within the same grade, and does this gap widen at lower grades (D–G)?
 
 ### Investigation of Follow-up Questions
 
 GIVE WHAT 2 QUESTIONS YOU ATTEMPTED TO INVESTIGATE FURTHER IN COMPLETE SENTENCES (*Example:* Our group decided to investigate Q2 and Q4 in further detail.)
 
 SHOW AT LEAST 2 TABLES OR FIGURES BELOW THAT EXPLORE ANSWERS FOR THE QUESTIONS YOU ARE INVESTIGATING FURTHER.
-
 
 #Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
 
@@ -692,6 +694,7 @@ m8 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership + purpo
 ```
 
 Table 1: Sequential ANOVA results
+
 ```{r}
 anova(m0, m1, m4, m5, m6, m7, m8) |>
   tidy() |>
@@ -727,6 +730,7 @@ anova(m0, m1, m4, m5, m6, m7, m8) |>
 ```
 
 Table 2: Type II ANOVA. Tests each predictor controlling for all others
+
 ```{r}
 Anova(m8, type = 2) |>
   tidy() |>
@@ -751,8 +755,8 @@ Anova(m8, type = 2) |>
   )
 ```
 
-
 Figure 1: RSS Drop at Each Step
+
 ```{r}
 rss_data <- tibble(
   Model = c("M0\n(intercept)", "M1\n+dti", "M4\n+annual_inc",
@@ -788,6 +792,7 @@ ggplot(rss_data, aes(x = reorder(Model, Step), y = RSS / 1e6, group = 1)) +
 ```
 
 Figure 2: Mean Interest Rate by Term (most significant predictor)
+
 ```{r}
 actual_data |>
   group_by(term) |>
@@ -813,13 +818,14 @@ actual_data |>
 ```
 
 #Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+
 ```{r}
 #
 ```
 
 # Summary
 
-GIVE A 2 PARAGRAPH SUMMARY. 
+GIVE A 2 PARAGRAPH SUMMARY.
 
 PARAGRAPH 1 SHOULD DESCRIBE WHAT YOU LEARNED ABOUT YOUR DATA FROM INVESTIGATING THE INITIAL QUESTIONS. DID YOU FIND ANYTHING UNUSUAL IN YOUR DATA? DID ANYTHING SURPRISE YOU? WHICH OF THE INITIAL QUESTIONS WERE HELPFUL IN LEADING YOU TO MORE QUESTIONS?
 
