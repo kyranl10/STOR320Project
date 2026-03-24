@@ -507,6 +507,7 @@ Interpretation of Findings: The highest median DTI values are seen with debt con
 ### Q1: How does the average interest rates for each grade compare
 
 Summary:
+<<<<<<< HEAD
 
 ```{r}
 summary_table <- actual_data |>
@@ -521,6 +522,19 @@ summary_table <- actual_data |>
 summary_table
 ```
 
+=======
+
+```{r}
+summary_table <- actual_data %>%
+  dplyr::group_by(grade) %>%
+  dplyr::summarize(
+  avg_int_rate = mean(int_rate, na.rm = TRUE)) %>%
+  arrange(grade)
+
+summary_table
+```
+
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
 Graph:
 
 ```{r}
@@ -540,12 +554,17 @@ ggplot(
 
 ```
 
+<<<<<<< HEAD
 Interpretation of Findings: 
 There is a clear upward trend in interest rates as loan grade worsens from A to G. The average interest rate increases from 6.93% for grade A to about 24.34% for grade G. The mean and median interest rates are very close within each grade, suggesting that the distribution of interest rates within each grade is fairly symmetric and not heavily skewed. Variability in interest rates differs across grades. Grades C–E show the greatest spread, with standard deviations ranging from about 1.18 to 1.62, indicating more variation in pricing within these categories. Grades F and G have standard deviations around 0.50–0.58, suggesting that interest rates are more tightly clustered at the higher end.
+=======
+Interpretation of Findings:
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
 
 ### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
+<<<<<<< HEAD
 
 ```{r}
 state_purpose_table <- actual_data |>
@@ -564,6 +583,13 @@ state_purpose_table <- actual_data |>
 state_purpose_table
 ```
 
+=======
+
+```{r}
+#
+```
+
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
 Graph:
 
 ```{r}
@@ -577,8 +603,12 @@ ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
   )
 ```
 
+<<<<<<< HEAD
 Interpretation of Findings: 
 The distribution of loan purposes is rather consistent across states. Overall, the findings suggest that state does not appear to be a strong factor influencing the purpose of a loan. Ex, for credit card loans the highest percentage of loans is in DC with 2.599171e-01, while the lowest is South Carolina with 1.808769e-01. Borrower intentions are largely uniform across regions, which aligns with the visual evidence from the proportional bar plot showing almost identical distributions across states.
+=======
+Interpretation of Findings:
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
 
 # Deliverer: Emily Jones
 
@@ -721,6 +751,7 @@ m5 <- lm(int_rate ~ dti + annual_inc + loan_amnt,                               
 m6 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term,                            data = q1_data)
 m7 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership,           data = q1_data)
 m8 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership + purpose, data = q1_data)
+<<<<<<< HEAD
 ```
 
 Table 1: Sequential ANOVA results
@@ -855,7 +886,135 @@ states <- c("CA", "NY", "TX", "FL", "IL")
 q2_data <- actual_data |>
   filter(addr_state %in% states) |>
   drop_na(int_rate, dti, annual_inc, loan_amnt, term, home_ownership, purpose)
+=======
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
 ```
+
+Table 1: Sequential ANOVA results
+
+```{r}
+anova(m0, m1, m4, m5, m6, m7, m8) |>
+  tidy() |>
+  mutate(
+    Predictors = c(
+      "Intercept only",
+      "+ dti",
+      "+ annual_inc",
+      "+ loan_amnt",
+      "+ term (1 dummy)",
+      "+ home_ownership (5 dummies)",
+      "+ purpose (13 dummies)"
+    ),
+    rss      = round(rss, 0),
+    sumsq    = round(sumsq, 0),
+    statistic = round(statistic, 1),
+    p.value  = ifelse(p.value < 0.001, "< 2.2e-16 ***", round(p.value, 4))
+  ) |>
+  select(Predictors, df.residual, rss, df, sumsq, statistic, p.value) |>
+  rename(
+    `Res. Df`    = df.residual,
+    RSS          = rss,
+    Df           = df,
+    `Sum of Sq`  = sumsq,
+    `F Statistic` = statistic,
+    `P-Value`    = p.value
+  ) |>
+  gt() |>
+  tab_header(
+    title    = "Sequential Nested F-Tests: Adding Predictors to Interest Rate Model",
+    subtitle = "Each row tests whether adding that predictor significantly reduces unexplained error"
+  )
+```
+
+Table 2: Type II ANOVA. Tests each predictor controlling for all others
+
+```{r}
+Anova(m8, type = 2) |>
+  tidy() |>
+  mutate(
+    sumsq     = round(sumsq, 0),
+    statistic = round(statistic, 1),
+    p.value   = ifelse(p.value < 0.001, "< 2.2e-16 ***", round(p.value, 4))
+  ) |>
+  filter(term != "Residuals") |>
+  rename(
+    Predictor    = term,
+    `Sum Sq`     = sumsq,
+    Df           = df,
+    `F Statistic` = statistic,
+    `P-Value`    = p.value
+  ) |>
+  arrange(desc(`F Statistic`)) |>
+  gt() |>
+  tab_header(
+    title    = "Type II ANOVA: Full Model (M8)",
+    subtitle = "Each predictor tested while controlling for all others simultaneously"
+  )
+```
+
+Figure 1: RSS Drop at Each Step
+
+```{r}
+rss_data <- tibble(
+  Model = c("M0\n(intercept)", "M1\n+dti", "M4\n+annual_inc",
+            "M5\n+loan_amnt", "M6\n+term", "M7\n+home_own", "M8\n+purpose"),
+  RSS   = c(
+    sum(residuals(m0)^2), sum(residuals(m1)^2),
+    sum(residuals(m4)^2), sum(residuals(m5)^2),
+    sum(residuals(m6)^2), sum(residuals(m7)^2),
+    sum(residuals(m8)^2)
+  ),
+  Step = 1:7
+)
+
+ggplot(rss_data, aes(x = reorder(Model, Step), y = RSS / 1e6, group = 1)) +
+  geom_line(color = "red", linewidth = 1) +
+  geom_point(size = 3, color = "red") +
+  geom_text(aes(label = paste0(round(RSS / 1e6, 1), "M")),
+            vjust = -0.8, size = 3.5) +
+  annotate("rect",
+           xmin = 4.5, xmax = 5.5,
+           ymin = -Inf, ymax = Inf,
+           alpha = 0.1, fill = "blue") +
+  annotate("text", x = 5, y = 16,
+           label = "Largest\ndrop", size = 3.5,
+           color = "blue", fontface = "bold") +
+  labs(
+    title    = "Loan term dominates interest rate prediction, adding it halves unexplained error",
+    subtitle = "Each step tests whether the new predictor significantly reduces RSS via nested",
+    x        = "Model",
+    y        = "RSS (millions)"
+  ) +
+  theme_minimal()
+```
+
+Figure 2: Mean Interest Rate by Term (most significant predictor)
+
+```{r}
+actual_data |>
+  group_by(term) |>
+  summarise(
+    mean_int_rate = round(mean(int_rate, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = term, y = mean_int_rate)) +
+  geom_col() +
+  geom_text(aes(label = paste0(mean_int_rate, "%")),
+            vjust = -0.5) +
+  labs(
+    title   = "60-month loans carry higher interest rates than 36-month loans",
+    x       = "Loan Term",
+    y       = "Mean Interest Rate (%)",
+    caption = "LendingClub loan data, n = 887,365"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title          = element_text(face = "bold"),
+    plot.title.position = "plot"
+  )
+```
+
+#Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
 
 ```{r}
 state_models <- q2_data |>
