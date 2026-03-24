@@ -507,6 +507,10 @@ Interpretation of Findings: The highest median DTI values are seen with debt con
 ### Q1: How does the average interest rates for each grade compare
 
 Summary:
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 
 ```{r}
 summary_table <- actual_data |>
@@ -521,6 +525,22 @@ summary_table <- actual_data |>
 summary_table
 ```
 
+<<<<<<< HEAD
+=======
+=======
+
+```{r}
+summary_table <- actual_data %>%
+  dplyr::group_by(grade) %>%
+  dplyr::summarize(
+  avg_int_rate = mean(int_rate, na.rm = TRUE)) %>%
+  arrange(grade)
+
+summary_table
+```
+
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 Graph:
 
 ```{r}
@@ -540,12 +560,25 @@ ggplot(
 
 ```
 
+<<<<<<< HEAD
 Interpretation of Findings: 
 There is a clear upward trend in interest rates as loan grade worsens from A to G. The average interest rate increases from 6.93% for grade A to about 24.34% for grade G. The mean and median interest rates are very close within each grade, suggesting that the distribution of interest rates within each grade is fairly symmetric and not heavily skewed. Variability in interest rates differs across grades. Grades C–E show the greatest spread, with standard deviations ranging from about 1.18 to 1.62, indicating more variation in pricing within these categories. Grades F and G have standard deviations around 0.50–0.58, suggesting that interest rates are more tightly clustered at the higher end.
+=======
+<<<<<<< HEAD
+Interpretation of Findings: 
+There is a clear upward trend in interest rates as loan grade worsens from A to G. The average interest rate increases from 6.93% for grade A to about 24.34% for grade G. The mean and median interest rates are very close within each grade, suggesting that the distribution of interest rates within each grade is fairly symmetric and not heavily skewed. Variability in interest rates differs across grades. Grades C–E show the greatest spread, with standard deviations ranging from about 1.18 to 1.62, indicating more variation in pricing within these categories. Grades F and G have standard deviations around 0.50–0.58, suggesting that interest rates are more tightly clustered at the higher end.
+=======
+Interpretation of Findings:
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 
 ### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 
 ```{r}
 state_purpose_table <- actual_data |>
@@ -564,6 +597,16 @@ state_purpose_table <- actual_data |>
 state_purpose_table
 ```
 
+<<<<<<< HEAD
+=======
+=======
+
+```{r}
+#
+```
+
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 Graph:
 
 ```{r}
@@ -577,8 +620,17 @@ ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
   )
 ```
 
+<<<<<<< HEAD
 Interpretation of Findings: 
 The distribution of loan purposes is rather consistent across states. Overall, the findings suggest that state does not appear to be a strong factor influencing the purpose of a loan. Ex, for credit card loans the highest percentage of loans is in DC with 2.599171e-01, while the lowest is South Carolina with 1.808769e-01. Borrower intentions are largely uniform across regions, which aligns with the visual evidence from the proportional bar plot showing almost identical distributions across states.
+=======
+<<<<<<< HEAD
+Interpretation of Findings: 
+The distribution of loan purposes is rather consistent across states. Overall, the findings suggest that state does not appear to be a strong factor influencing the purpose of a loan. Ex, for credit card loans the highest percentage of loans is in DC with 2.599171e-01, while the lowest is South Carolina with 1.808769e-01. Borrower intentions are largely uniform across regions, which aligns with the visual evidence from the proportional bar plot showing almost identical distributions across states.
+=======
+Interpretation of Findings:
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 
 # Deliverer: Emily Jones
 
@@ -721,6 +773,10 @@ m5 <- lm(int_rate ~ dti + annual_inc + loan_amnt,                               
 m6 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term,                            data = q1_data)
 m7 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership,           data = q1_data)
 m8 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership + purpose, data = q1_data)
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 ```
 
 Table 1: Sequential ANOVA results
@@ -855,6 +911,11 @@ states <- c("CA", "NY", "TX", "FL", "IL")
 q2_data <- actual_data |>
   filter(addr_state %in% states) |>
   drop_na(int_rate, dti, annual_inc, loan_amnt, term, home_ownership, purpose)
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 877a2b0d5a0237d6ec854911d97d63fc106cd5e7
+>>>>>>> 24dfe1d6a901c566c7ee2f41da9afb18241ca874
 ```
 
 ```{r}
