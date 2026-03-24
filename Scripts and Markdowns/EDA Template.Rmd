@@ -418,7 +418,7 @@ Interpretation: Across all three major ownership groups, debt consolidation domi
 Summary:
 
 ```{r}
-grade_table <- actual_data |>
+ross_q1_table <- actual_data |>
   group_by(grade) |>
   summarise(
     n = n(),
@@ -431,29 +431,31 @@ grade_table <- actual_data |>
   ) |>
   arrange(grade)
 
-grade_table |> gt()
+ross_q1_table |> gt()
 ```
 
 Graph:
 
 ```{r}
-q1_boxplot <- ggplot(actual_data, aes(x = grade, y = loan_amnt)) +
+ross_q1_graph <- ggplot(actual_data, aes(x = grade, y = loan_amnt, fill = grade)) +
   geom_boxplot() + 
   labs(
     title = "Loan Amount by Loan Grade",
     x = "Loan Grade",
     y = "Loan Amount"
   ) +
+  scale_fill_brewer(palette = "RdYlGn", direction = -1) + 
   theme_minimal(base_size = 14) +
   theme(
     plot.title = element_text(face = "bold", size = 16),
     axis.title = element_text(face = "bold"),
+    legend.position = "none",
   )
 
-q1_boxplot
+ross_q1_graph
 ```
 
-Interpretation of Findings: There is a clear, positive relationship between loan grade and loan amount — but it runs in the counterintuitive direction. Grade A borrowers (the most creditworthy) have a median loan of \$12,000, while grade G borrowers (the riskiest) have a median of \$20,000. This means riskier borrowers are taking out larger loans, which compounds LendingClub's exposure. The boxplots also show increasing spread and higher upper quartiles as grade worsens, confirming that high-grade borrowers tend to take smaller, more standardized loans while low-grade borrowers show more variability. From a portfolio management perspective, the combination of lower creditworthiness and larger loan sizes in grades E–G represents a concentrated risk that warrants careful underwriting scrutiny.
+Interpretation of Findings: There is a clear association between Loan Grade and Loan Amount - where the higher grade the loan receives, the lower the median loan amount is. Grade A, B, and C borrowers have the lowest median loan of \$12,000 and the median loan amount (as well as standard deviation) rises all the way to grade G borrowers with a median of \$20,000, meaning that riskier borrowers are taking out larger loans. The IQR is also higher at grades E, F, and G, meaning there is more spread at these grades, showcasing that lower graded borrowers tend to have more variability in their loan amounts. These high variability, low grade loans could signal an area of unnecessary risk that is being taken on.
 
 ### Q2: Is there a correlation between DTI (debt-to-income) and purpose?
 
@@ -480,15 +482,25 @@ Graph:
 
 ```{r}
 capped_dti <- actual_data[actual_data$dti <= 50,]
-q2_boxplot <- ggplot(capped_dti, aes(x = purpose, y = dti)) +
+ross_q2_graph <- ggplot(capped_dti, aes(x = reorder(purpose, dti, median), y = dti, fill = purpose)) +
   geom_boxplot() +
-  coord_flip()
-  
+  coord_flip() + 
+  labs(
+    title = "Loan Purpose by DTI (Debt To Income)",
+    x = "Loan Purpose",
+    y = "DTI"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
 
-q2_boxplot
+ross_q2_graph
 ```
 
-Interpretation of Findings: Debt consolidation and credit card loans — which together make up over 82% of all loans — show the highest median DTI values, around 18–19. This makes intuitive sense: borrowers already carrying heavy debt loads are turning to LendingClub to restructure or pay off existing obligations. In contrast, car loans, small business loans, and educational loans show notably lower DTI medians (around 11–14), suggesting these borrowers come in with lighter existing debt burdens. High-DTI borrowers concentrated in debt consolidation are a particular risk flag and they are already financially stretched, and if the consolidation loan fails to meaningfully reduce their obligations, the probability of default rises. LendingClub should weight DTI heavily when evaluating consolidation loan applications.
+Interpretation of Findings: The highest median DTI values are seen with debt consolidation and credit card loans, with values around 18, with these purposes also taking up over 700,000 out of \~887,000 data points in the sample. This is logical, as debt consolidation borrowers already have a level of debt that they are struggling with and people with credit card loans are likely living outside of their means, inflating their DTI value. Comparing these 2 loan purposes to the lower median DTI values such as education, car, and small business loans, which have median DTI values of 11.01, 13.45, and 14.03 respectively makes sense, as these purposes often have borrowers with lower existing debt burdens. Looking at these DTI median values can help to figure out which types of loan are at higher repayment risk and which purposes present a safer repayment risk due to lower debt burden.
 
 # Orator 2: Carter Boxell
 
