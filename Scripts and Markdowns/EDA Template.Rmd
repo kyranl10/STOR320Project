@@ -1,11 +1,14 @@
 ---
 title: "Exploratory Data Analysis"
-author: "STOR 320.(01 OR 02) Group PLACE_GROUP_NUMBER_HERE (Ex: STOR 320.01 Group 12)"
+author: 'STOR 320.(01 OR 02) Group PLACE_GROUP_NUMBER_HERE (Ex: STOR 320.01 Group
+  12)'
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 suppressWarnings(library(tidyverse))
 suppressWarnings(library(janitor))      
@@ -16,20 +19,17 @@ suppressWarnings(library(corrr))
 suppressWarnings(library(tidyverse))
 suppressWarnings(library(car))
 suppressWarnings(library(gt))
-library(tidyr)
 library(funModeling)
-library(readr)
-library(dplyr)
-library(ggplot2)
+library(broom)
 ```
 
-
-```{r setup, include=FALSE}
+```{r}
 # Import Data Below
 loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv")
 ```
 
 Subset of actual dataset of interest:
+
 ```{r}
 actual_data <- loan_dataset_full |>
   select(annual_inc, int_rate, loan_amnt, emp_length, dti,
@@ -43,12 +43,16 @@ summary(actual_data)
 
 ###Statement of the business problem
 
+\*\*Redo
+
+Despite their best efforts, LendingClub is approving too many borrowers who default, scaring away potential investors. LendingClub has hired us to analyze their loan data and identify patterns that could help them better predict which borrowers are likely to default. By understanding the relationships between borrower characteristics, loan attributes, and loan performance, we can provide actionable insights to improve LendingClub's credit risk assessment and reduce default rate
 
 ### Data Dictionary
-RESEARCH MORE*
+
+RESEARCH MORE\*
 
 | Variable | Type | What it represents |
-| :--- | :---: | :--- |
+|:---------------------|:--------------------------:|:---------------------|
 | int_rate | Numeric (continuous) | Interest rate on the loan |
 | loan_amnt | Numeric (continuous) | Amount of the loan issued |
 | annual_inc | Numeric (continuous) | Annual income of the borrower |
@@ -60,7 +64,6 @@ RESEARCH MORE*
 | addr_state | Nominal factor | State of the borrower |
 | term | Ordinal factor | Length of the loan (36 or 60 months) |
 
-
 ### Data Quality Report
 
 ```{r}
@@ -68,10 +71,13 @@ glimpse(actual_data)
 dim(actual_data)
 DataExplorer::introduce(actual_data)
 DataExplorer::plot_missing(actual_data)
+
 missing_tbl <- actual_data |>
   summarise(across(everything(), ~ sum(is.na(.)))) |>
   pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
   arrange(desc(n_missing))
+
+missing_tbl
 ```
 
 ```{r}
@@ -79,6 +85,7 @@ any(duplicated(actual_data))
 ```
 
 ##Numerical Features
+
 ```{r}
 numeric_features <- actual_data |>
   select_if(is.numeric)
@@ -101,11 +108,11 @@ names(numeric_report_table) <- c("Feature", "Count", "% Miss.", "Cardinality", "
 
 numeric_report_table
 ```
+
 ```{r}
 funModeling::plot_num(numeric_features)
 funModeling::profiling_num(numeric_features)
 ```
-
 
 ```{r}
 detect_outliers <- function(x) {
@@ -125,7 +132,6 @@ actual_data |>
                values_to = "n_outliers") |>
   gt()
 ```
-
 
 #### Categorical Features
 
@@ -151,95 +157,101 @@ funModeling::freq(categorical_features)
 The following issues were identified in the raw dataset and addressed during data cleaning:
 
 | Feature | Data Quality Issue | Proposed Handling Solution |
-| :--- | :--- | :--- |
-| annual_inc | 4 missing values (0.0005%) | Retain; filter within chunks requiring it |
-| annual_inc | 39,719 outliers; max $9,500,000 plausible | Valid outliers; apply clamp transformation |
-| int_rate | 6,308 outliers; range 5.32–28.99% realistic | Valid outliers; apply clamp transformation |
-| loan_amnt | No missing values; 0 outliers | No action needed |
-| dti | 81 outliers; max 9,999 likely invalid | Remove rows where dti > 100 |
-| emp_length | n/a present as level (44,825 / 5.05%) | Recoded to NA via str_squish and na_if |
-| addr_state | Cardinality 51 — expected (50 states + DC) | No action needed |
-| grade | Skewed toward B and C (56% combined) | Valid distribution; no action needed |
-| purpose | Rare categories <0.1% each | Consider collapsing into other |
-| home_ownership | OTHER/NONE/ANY represent <0.03% | Collapse into single OTHER category |
-| term | 70/30 split — imbalanced but realistic | Valid distribution; no action needed |
-| All character columns | Inconsistent spacing and blank-like values | str_squish, na_if, case_when standardization |
-
-
+|:-----------------------|:-----------------------|:-----------------------|
+| annual_inc | 4 missing values (0.0005%) | Retain in dataset; drop only within chunks that require it |
+| annual_inc | 39,719 outliers via IQR; max \$9,500,000; skewness 44.48, kurtosis 4,811 — severe right skew | Valid outliers (high earners exist); apply clamp transformation (Q1 - 1.5×IQR, Q3 + 1.5×IQR) |
+| int_rate | 6,308 outliers via IQR; range 5.32–28.99% realistic; slight right skew (0.43) | Valid outliers (higher rates reflect riskier borrowers); apply clamp transformation |
+| loan_amnt | 0 missing values; 0 outliers; range \$500–\$35,000 within LendingClub limits | No action needed |
+| dti | 81 outliers via IQR; max of 9,999 is almost certainly invalid; skewness 441, kurtosis 256,128 | Invalid outlier; remove rows where dti \> 100 |
+| emp_length | `n/a` present as a factor level (44,825 rows / 5.05%) — hidden missing values | Recode `n/a` to `NA`; retain rows for analyses not requiring emp_length |
+| addr_state | Cardinality of 51 — expected (50 states + DC); no unexpected levels | No action needed |
+| grade | Cardinality of 7 (A–G); skewed toward B (28.68%) and C (27.71%) | Valid distribution; encode as ordered factor A→G |
+| purpose | Cardinality of 14; rare categories renewable_energy (0.06%) and educational (0.05%) | Consider collapsing rare categories into `other` for cleaner analysis |
+| home_ownership | OTHER (182, 0.02%), NONE (50, 0.01%), ANY (3, 0%) represent \<0.03% combined | Collapse OTHER, NONE, ANY into single OTHER category |
+| term | Cardinality of 2; 70/30 split between 36 and 60 months — imbalanced but realistic | Valid distribution; encode as ordered factor |
+| All character columns | Potential inconsistent spacing and blank-like values (e.g. `n/a` in emp_length) | Apply str_squish(), na_if(), and case_when() standardization |
 
 ### Data Cleaning
-To see the basic format of the data and get a sense of how many rows and columns we have.
-```{r}
-glimpse(actual_data)
-dim(actual_data)
-```
 
 ```{r}
-(missing_tbl <- actual_data |>
-    summarise(across(everything(), ~ sum(is.na(.)))) |>
-    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
-    arrange(desc(n_missing)))
-```
-
-Check to see if there are any duplicated data rows:
-```{r}
-any(duplicated(actual_data))
-```
-
-
-Removing all the duplicates and keeping the first occurrence:
-```{r}
-actual_data <- actual_data[!duplicated(actual_data), ]
-```
-
-Cleaning string variables
-```{r}
+#Recode n/a in emp_length to NA and clean blank-like string values
 actual_data <- actual_data |>
+  mutate(across(where(is.factor), ~ fct_recode(., NULL = "n/a"))) |>
   mutate(across(where(is.character), ~ str_squish(.))) |>
   mutate(across(where(is.character), ~ na_if(.x, ""))) |>
   mutate(across(where(is.character),
-                ~ case_when(
-                  .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
-                  TRUE ~ .x
-                )))
-```
+    ~ case_when(
+      .x %in% c("NA", "N/A", "null", "NULL", "?", "unknown", "Unknown") ~ NA_character_,
+      TRUE ~ .x
+    )))
 
+#Remove duplicate rows (keep first occurrence)
+actual_data <- actual_data[!duplicated(actual_data), ]
 
-```{r}
+# Remove invalid dti outliers
+actual_data <- actual_data |>
+  filter(dti <= 100)
+
+#Collapse rare home_ownership levels into OTHER
+actual_data <- actual_data |>
+  mutate(home_ownership = fct_collapse(home_ownership,
+    OTHER = c("OTHER", "NONE", "ANY")
+  ))
+
+#Ordered factor encoding
 actual_data <- actual_data |>
   mutate(
-    grade      = factor(grade, levels = c("A","B","C","D","E","F","G"), ordered = TRUE),
-    term       = factor(term,  levels = c("36 months","60 months"), ordered = TRUE),
+    grade = factor(grade, 
+                   levels = c("A","B","C","D","E","F","G"), 
+                   ordered = TRUE),
+    term = factor(term,  
+                  levels = c("36 months","60 months"), 
+                  ordered = TRUE),
     emp_length = factor(emp_length,
                    levels = c("< 1 year", "1 year", "2 years", "3 years",
                               "4 years", "5 years", "6 years", "7 years",
                               "8 years", "9 years", "10+ years"),
                    ordered = TRUE),
-    purpose    = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
+    purpose = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
   )
-```
 
+#Apply clamp transformation to valid outliers
+clamp <- function(x) {
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR_val <- Q3 - Q1
+  lower <- Q1 - 1.5 * IQR_val
+  upper <- Q3 + 1.5 * IQR_val
+  pmax(pmin(x, upper), lower)
+}
 
-Drop rows missing key variables:
-```{r}
 actual_data <- actual_data |>
-  drop_na()
-```
+  mutate(
+    annual_inc = clamp(annual_inc),
+    int_rate   = clamp(int_rate)
+  )
 
-```{r}
+#Drop rows with NAs in key variables
+actual_data <- actual_data |>
+  drop_na(int_rate, loan_amnt, grade, home_ownership, 
+          purpose, term, addr_state, dti)
+
+#Confirm final state of data
+glimpse(actual_data)
+dim(actual_data)
+
 (missing_tbl_final <- actual_data |>
-    summarise(across(everything(), ~ sum(is.na(.)))) |>
-    pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
-    arrange(desc(n_missing)))
+  summarise(across(everything(), ~ sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
+  arrange(desc(n_missing)))
 ```
-
-
 
 # Creator: Tracy Huang
 
 ### Q1: Can interest rate by predicted based on loan term and loan grade?
 
 Summary:
+
 ```{r}
 q1_table <- actual_data |>
   group_by(grade, term) |>
@@ -258,6 +270,7 @@ q1_table |> gt()
 ```
 
 Graph:
+
 ```{r}
 actual_data |>
   ggplot(aes(x = grade, y = int_rate, fill = term)) +
@@ -271,13 +284,12 @@ actual_data |>
   theme_minimal()
 ```
 
-Interpretation of Findings:
-
-
+Interpretation of Findings: Interest rate is almost perfectly explained by grade and term together. Grade A loans average 7.22–8.00%, while grade G loans average 23.40–25.18%, a spread of over 17 percentage points. Within each grade, 60-month loans consistently carry slightly higher rates than 36-month loans, though the gap is modest (under 1%). The monotonic increase from A through G confirms that LendingClub's internal grading system is highly consistent with its pricing engine. For risk assessment purposes, grade is the dominant pricing signal, and loan term acts as a secondary risk premium on top of it.
 
 ### Q2: Can home ownership status be predicted using borrower income and employment length?
 
 Summary:
+
 ```{r}
 q2_table <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
@@ -294,8 +306,8 @@ q2_table <- actual_data |>
 q2_table |> gt()
 ```
 
+Graph:
 
-Graph: 
 ```{r}
 q2_plot_data <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
@@ -321,8 +333,8 @@ ggplot(q2_plot_data,
   ) +
   theme_minimal()
 ```
-Interpretation of Findings:
 
+Interpretation of Findings: Income alone does a poor job of separating ownership groups, all four categories (RENT, MORTGAGE, OWN, OTHER) track nearly identical income trajectories across all 10 deciles, with medians converging tightly from roughly \$27k at decile 1 to \$147k at decile 10. This means income does not cleanly predict whether a borrower rents or owns. However, the homeownership breakdown by employment length (in Emily's Q2 follow-up) adds important context: as employment length increases, the share of mortgage holders rises steadily from 35% (under 1 year) to 62% (10+ years), while renters fall from 56% to 28%. Together, this suggests employment stability is a better differentiator of housing status than income level alone, and that renters — who are often earlier in their careers may represent a higher-mobility, higher-turnover risk segment for LendingClub.
 
 # Interpreter: Kyran Lakhia
 
@@ -365,7 +377,7 @@ ggplot(state_avg, aes(x = reorder(addr_state, avg_grade), y = avg_grade, fill = 
   )
 ```
 
-The chart shows the states with the worst average loan grades. Since loan grades range from A (best) to G (worst), higher numeric averages indicate lower credit quality. However, the averages are still between B and C, which suggests that overall loan quality remains fairly strong even in the states with the lowest average grades.
+Interpretation: No state is dramatically underperforming. The ten worst-graded states (Iowa, Mississippi, Hawaii, Alabama, Nebraska, Tennessee, North Dakota, Alaska, Indiana, Delaware) all average between grade B and C numerically. Iowa leads with the highest average numeric grade at 3.43, still mapping to a "C." This is actually a reassuring signal: even in the weakest states, credit quality remains in acceptable territory. However, for LendingClub's risk team, these states merit closer monitoring. Smaller-volume states like Iowa (only 14 loans) and Idaho (12 loans) should be interpreted with caution, as their averages are based on tiny samples and could shift significantly with more data.
 
 ### Q2: Is there a relationship between home ownership and purpose?
 
@@ -397,73 +409,124 @@ actual_data |>
   )
 ```
 
+Interpretation: Across all three major ownership groups, debt consolidation dominates loan purpose, accounting for roughly 60% of loans regardless of whether the borrower rents, has a mortgage, or owns outright. Credit cards are the second most common purpose across all groups. One notable difference: renters show a disproportionately low share of home improvement loans compared to mortgage holders, which is intuitive since renters have less incentive to invest in property upgrades. The near-uniform distribution of purposes across ownership types suggests that home ownership is not a strong differentiator of why someone borrows, but it may still be meaningful for predicting repayment behavior, since mortgage holders tend to have more financial obligations and stability.
+
 # Orator 1: Ross Guinan
 
-### Q1: 
+### Q1: Is there a relationship between loan amount and loan grade?
 
 Summary:
-```{r}
-#
-```
 
+```{r}
+ross_q1_table <- actual_data |>
+  group_by(grade) |>
+  summarise(
+    n = n(),
+    mean_loan_amnt = round(mean(loan_amnt, na.rm = TRUE), 2),
+    median_loan_amnt = round(median(loan_amnt, na.rm = TRUE), 2),
+    sd_loan_amnt = round(sd(loan_amnt, na.rm = TRUE), 2),
+    q1 = round(quantile(loan_amnt, 0.25, na.rm = TRUE), 2),
+    q3 = round(quantile(loan_amnt, 0.75, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  arrange(grade)
+
+ross_q1_table |> gt()
+```
 
 Graph:
-```{r}
 
+```{r}
+ross_q1_graph <- ggplot(actual_data, aes(x = grade, y = loan_amnt, fill = grade)) +
+  geom_boxplot() + 
+  labs(
+    title = "Loan Amount by Loan Grade",
+    x = "Loan Grade",
+    y = "Loan Amount"
+  ) +
+  scale_fill_brewer(palette = "RdYlGn", direction = -1) + 
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none",
+  )
+
+ross_q1_graph
 ```
 
-Interpretation of Findings:
-```{r}
+Interpretation of Findings: There is a clear association between Loan Grade and Loan Amount - where the higher grade the loan receives, the lower the median loan amount is. Grade A, B, and C borrowers have the lowest median loan of \$12,000 and the median loan amount (as well as standard deviation) rises all the way to grade G borrowers with a median of \$20,000, meaning that riskier borrowers are taking out larger loans. The IQR is also higher at grades E, F, and G, meaning there is more spread at these grades, showcasing that lower graded borrowers tend to have more variability in their loan amounts. These high variability, low grade loans could signal an area of unnecessary risk that is being taken on.
 
-```
-
-### Q2: 
+### Q2: Is there a correlation between DTI (debt-to-income) and purpose?
 
 Summary:
-```{r}
-#
-```
 
+```{r}
+ross_q2_table <- actual_data |>
+  group_by(purpose) |>
+  summarise(
+    n = n(),
+    mean_dti = round(mean(dti, na.rm = TRUE), 2),
+    median_dti = round(median(dti, na.rm = TRUE), 2),
+    sd_dti = round(sd(dti, na.rm = TRUE), 2),
+    q1 = round(quantile(dti, 0.25, na.rm = TRUE), 2),
+    q3 = round(quantile(dti, 0.75, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  arrange(purpose)
+
+ross_q2_table |> gt()
+```
 
 Graph:
-```{r}
 
+```{r}
+capped_dti <- actual_data[actual_data$dti <= 50,]
+ross_q2_graph <- ggplot(capped_dti, aes(x = reorder(purpose, dti, median), y = dti, fill = purpose)) +
+  geom_boxplot() +
+  coord_flip() + 
+  labs(
+    title = "Loan Purpose by DTI (Debt To Income)",
+    x = "Loan Purpose",
+    y = "DTI"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+ross_q2_graph
 ```
 
-Interpretation of Findings:
-```{r}
-
-```
+Interpretation of Findings: The highest median DTI values are seen with debt consolidation and credit card loans, with values around 18, with these purposes also taking up over 700,000 out of \~887,000 data points in the sample. This is logical, as debt consolidation borrowers already have a level of debt that they are struggling with and people with credit card loans are likely living outside of their means, inflating their DTI value. Comparing these 2 loan purposes to the lower median DTI values such as education, car, and small business loans, which have median DTI values of 11.01, 13.45, and 14.03 respectively makes sense, as these purposes often have borrowers with lower existing debt burdens. Looking at these DTI median values can help to figure out which types of loan are at higher repayment risk and which purposes present a safer repayment risk due to lower debt burden.
 
 # Orator 2: Carter Boxell
 
-```{r}
-lc_data <- actual_data
-lc_data$grade <- factor(lc_data$grade, levels = c("A", "B", "C", "D", "E", "F", "G"))
-lc_data$addr_state <- factor(lc_data$addr_state)
-lc_data$purpose <- factor(lc_data$purpose)
-```
-
-### Q1: How do the average interest rates for each grade compare?
+### Q1: How does the average interest rates for each grade compare
 
 Summary:
+
 ```{r}
-summary_table <- lc_data %>%
-  dplyr::group_by(grade) %>%
+summary_table <- actual_data |>
+  dplyr::group_by(grade) |>
   dplyr::summarize(
-    avg_int_rate = mean(int_rate, na.rm = TRUE)
-  ) %>%
+    avg_int_rate = mean(int_rate, na.rm = TRUE),
+    median_int_rate = median(int_rate, na.rm = TRUE),
+    sd_int_rate = sd(int_rate, na.rm = TRUE)
+  ) |>
   arrange(grade)
 
 summary_table
 ```
 
-
 Graph:
+
 ```{r}
 ggplot(
   dplyr::summarize(
-    dplyr::group_by(lc_data, grade),
+    dplyr::group_by(actual_data, grade),
     avg_int_rate = mean(int_rate, na.rm = TRUE)
   ),
   aes(x = grade, y = avg_int_rate)
@@ -474,30 +537,37 @@ ggplot(
     x = "Loan Grade",
     y = "Average Interest Rate"
   )
+
 ```
 
-Interpretation of Findings:
-
-Loan grade is strongly associated with average interest rates.
-
-There is a clear upward trend in interest rates as loan grade worsens from A to G, indicating a strong relationship between credit risk and borrowing cost.
-Lower-grade loans have substantially higher interest rates: the average rate increases from 6.92% for grade A to 29.96% for grade G, a difference of about 23 percentage points, meaning grade G loans have interest rates more than 4 times higher than grade A loans.
-The increase is gradual but significant across each step. For example, rates rise from about 10.38% (B) to 14.01% (C) and continue steadily up through 18.44% (D) and 23.28% (E).
-This consistent pattern suggests a strong, monotonic relationship rather than random variation or irregular jumps between categories.
-
-Overall, loan grade appears to be a major factor linked to interest rates, with higher-risk grades consistently associated with substantially higher borrowing costs.
+Interpretation of Findings: 
+There is a clear upward trend in interest rates as loan grade worsens from A to G. The average interest rate increases from 6.93% for grade A to about 24.34% for grade G. The mean and median interest rates are very close within each grade, suggesting that the distribution of interest rates within each grade is fairly symmetric and not heavily skewed. Variability in interest rates differs across grades. Grades C–E show the greatest spread, with standard deviations ranging from about 1.18 to 1.62, indicating more variation in pricing within these categories. Grades F and G have standard deviations around 0.50–0.58, suggesting that interest rates are more tightly clustered at the higher end.
 
 ### Q2: Is there a relationship between state and purpose of loan?
 
 Summary:
+
 ```{r}
-#
+state_purpose_table <- actual_data |>
+  dplyr::group_by(addr_state, purpose) |>
+  dplyr::summarize(
+    n_loans = n(),
+    .groups = "drop"
+  ) |>
+  dplyr::group_by(addr_state) |>
+  mutate(
+    prop_loans = n_loans / sum(n_loans) 
+  ) |>
+  ungroup() |>
+  arrange(purpose, desc(prop_loans))
+
+state_purpose_table
 ```
 
-
 Graph:
+
 ```{r}
-ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
+ggplot(actual_data, aes(x = addr_state, fill = purpose)) +
   geom_bar(position = "fill") +
   labs(
     title = "Proportion of Loan Purposes by State",
@@ -507,60 +577,128 @@ ggplot(lc_data, aes(x = addr_state, fill = purpose)) +
   )
 ```
 
-Interpretation of Findings:
-```{r}
-
-```
-
+Interpretation of Findings: 
+The distribution of loan purposes is rather consistent across states. Overall, the findings suggest that state does not appear to be a strong factor influencing the purpose of a loan. Ex, for credit card loans the highest percentage of loans is in DC with 2.599171e-01, while the lowest is South Carolina with 1.808769e-01. Borrower intentions are largely uniform across regions, which aligns with the visual evidence from the proportional bar plot showing almost identical distributions across states.
 
 # Deliverer: Emily Jones
 
-### Q1: 
+### Q1: Does the purpose of the loan correlate to the amount of the loan?
 
 Summary:
-```{r}
-#
-```
 
+```{r}
+library(scales)
+loan_summary_table <- actual_data %>%
+  filter(!is.na(purpose), !is.na(loan_amnt)) %>%
+  group_by(purpose) %>%
+  summarise(
+    n = n(),                                    
+    mean_loan = mean(loan_amnt),
+    median_loan = median(loan_amnt)
+  ) %>%
+  arrange(desc(mean_loan)) %>% 
+  mutate(median_loan = dollar(median_loan)) |> 
+  mutate(mean_loan 
+         = dollar(mean_loan)) %>% 
+  rename(
+    "Loan Purpose" = purpose,
+    "Number of Loans" = n,
+    "Average Loan Amount" = mean_loan,
+    "Median Loan Amount" = median_loan,
+  ) |> gt()
+
+loan_summary_table
+```
 
 Graph:
-```{r}
 
+```{r}
+#graph 1
+bar_data <- actual_data |> 
+  filter(!is.na(purpose), !is.na(loan_amnt)) |> 
+  group_by(purpose) |> 
+  summarise(mean_loan = mean(loan_amnt)) |> 
+  arrange(mean_loan)
+
+ggplot(bar_data, aes(x = reorder(purpose, mean_loan), y = mean_loan, fill = mean_loan)) +
+  coord_flip() +
+  geom_col()+
+  labs(
+    title = "Average Loan Amount by Purpose",
+    x = "Loan Purpose",
+    y = "Average Loan Amount ($)",
+    fill = "Avg Amount")
+
+#graph 2
+bar_data <- actual_data |> 
+  filter(!is.na(purpose), !is.na(loan_amnt)) |> 
+  group_by(purpose) |> 
+  summarise(median_loan = median(loan_amnt)) |> 
+  arrange(median_loan)
+
+ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = median_loan)) +
+  coord_flip() +
+  geom_col()+
+  labs(
+    title = "Average Loan Amount by Purpose",
+    x = "Loan Purpose",
+    y = "Median Loan Amount ($)",
+    fill = "Avg Amount")
 ```
 
-Interpretation of Findings:
-```{r}
+Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around \$15,000–\$15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around \$6,300–\$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a higher median (\$12,575) relative to their mean (\$14,798), suggesting a left-skewed distribution where a cluster of smaller house loans pulls the median down.
 
-```
-
-### Q2: 
+### Q2:
 
 Summary:
-```{r}
-#
-```
 
+```{r}
+summary_table <- actual_data %>%
+  filter(!is.na(emp_length), !is.na(home_ownership)) %>%
+  group_by(emp_length, home_ownership) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(emp_length) %>%
+  mutate(percentage = count / sum(count) * 100) %>%
+  select(-count) %>%
+  pivot_wider(names_from = home_ownership, values_from = percentage)
+
+summary_table
+```
 
 Graph:
-```{r}
 
+```{r}
+emp_levels <- c("< 1 year", "1 year", "2 years", "3 years", "4 years", 
+                "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years")
+
+actual_data$emp_length <- factor(actual_data$emp_length, levels = emp_levels)
+
+ggplot(actual_data, aes(x = emp_length, fill = home_ownership)) +
+  geom_bar(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set2") + 
+  labs(
+    title = "Homeownership Trends by Employment Length",
+    x = "Years of Employment",
+    y = "Proportion of Borrowers",
+    fill = "Home Status"
+  )+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-Interpretation of Findings:
-```{r}
-
-```
-
-
+Interpretation of Findings: TThe data reveals a compelling and practically significant trend: as employment length increases, the proportion of mortgage holders rises from 35% (under 1 year) to over 61% (10+ years), while renters decline from 56% to just 28%. The proportion of outright owners holds steady at roughly 9% across all employment levels. This suggests that employment tenure is a strong proxy for financial stability and housing progression — longer-tenured workers have had more time to accumulate the savings and credit history needed to obtain a mortgage. From a credit risk standpoint, this is an actionable insight: short-tenure renters, who make up a disproportionate share of early-career borrowers, may represent higher default risk, not because of their purpose or income level, but because of their overall financial instability profile. LendingClub should consider employment length as a meaningful input into its risk scoring model.
 
 # Follow-up Questions
 
 ### New Questions Based Off Initial Investigation
 
-- Q1: WRITE_QUESTION_HERE
-- Q2: WRITE_QUESTION_HERE
-- Q3: WRITE_QUESTION_HERE 
-- Q4: WRITE_QUESTION_HERE
+-   Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
+
+-   Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of interest rate remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+
+-   Q3: Within Grade B and C loans (which make up over 56% of the portfolio), what combination of DTI, employment length, and home ownership best separates defaulters from non-defaulters?
+
+-   Q4: Are 60-month term loans more likely to default than 36-month loans within the same grade, and does this gap widen at lower grades (D–G)?
 
 ### Investigation of Follow-up Questions
 
@@ -568,17 +706,229 @@ GIVE WHAT 2 QUESTIONS YOU ATTEMPTED TO INVESTIGATE FURTHER IN COMPLETE SENTENCES
 
 SHOW AT LEAST 2 TABLES OR FIGURES BELOW THAT EXPLORE ANSWERS FOR THE QUESTIONS YOU ARE INVESTIGATING FURTHER.
 
+#Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
+
 ```{r}
-#
+q1_data <- actual_data |>
+  drop_na(int_rate, dti, annual_inc, loan_amnt, term, home_ownership, purpose)
+
+m0 <- lm(int_rate ~ 1,                                                              data = q1_data)
+m1 <- lm(int_rate ~ dti,                                                            data = q1_data)
+m2 <- lm(int_rate ~ annual_inc,                                                     data = q1_data)
+m3 <- lm(int_rate ~ loan_amnt,                                                      data = q1_data)
+m4 <- lm(int_rate ~ dti + annual_inc,                                               data = q1_data)
+m5 <- lm(int_rate ~ dti + annual_inc + loan_amnt,                                   data = q1_data)
+m6 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term,                            data = q1_data)
+m7 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership,           data = q1_data)
+m8 <- lm(int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership + purpose, data = q1_data)
+```
+
+Table 1: Sequential ANOVA results
+
+```{r}
+anova(m0, m1, m4, m5, m6, m7, m8) |>
+  tidy() |>
+  mutate(
+    Predictors = c(
+      "Intercept only",
+      "+ dti",
+      "+ annual_inc",
+      "+ loan_amnt",
+      "+ term (1 dummy)",
+      "+ home_ownership (5 dummies)",
+      "+ purpose (13 dummies)"
+    ),
+    rss      = round(rss, 0),
+    sumsq    = round(sumsq, 0),
+    statistic = round(statistic, 1),
+    p.value  = ifelse(p.value < 0.001, "< 2.2e-16 ***", round(p.value, 4))
+  ) |>
+  select(Predictors, df.residual, rss, df, sumsq, statistic, p.value) |>
+  rename(
+    `Res. Df`    = df.residual,
+    RSS          = rss,
+    Df           = df,
+    `Sum of Sq`  = sumsq,
+    `F Statistic` = statistic,
+    `P-Value`    = p.value
+  ) |>
+  gt() |>
+  tab_header(
+    title    = "Sequential Nested F-Tests: Adding Predictors to Interest Rate Model",
+    subtitle = "Each row tests whether adding that predictor significantly reduces unexplained error"
+  )
+```
+
+Table 2: Type II ANOVA. Tests each predictor controlling for all others
+
+```{r}
+Anova(m8, type = 2) |>
+  tidy() |>
+  mutate(
+    sumsq     = round(sumsq, 0),
+    statistic = round(statistic, 1),
+    p.value   = ifelse(p.value < 0.001, "< 2.2e-16 ***", round(p.value, 4))
+  ) |>
+  filter(term != "Residuals") |>
+  rename(
+    Predictor    = term,
+    `Sum Sq`     = sumsq,
+    Df           = df,
+    `F Statistic` = statistic,
+    `P-Value`    = p.value
+  ) |>
+  arrange(desc(`F Statistic`)) |>
+  gt() |>
+  tab_header(
+    title    = "Type II ANOVA: Full Model (M8)",
+    subtitle = "Each predictor tested while controlling for all others simultaneously"
+  )
+```
+
+Figure 1: RSS Drop at Each Step
+
+```{r}
+rss_data <- tibble(
+  Model = c("M0\n(intercept)", "M1\n+dti", "M4\n+annual_inc",
+            "M5\n+loan_amnt", "M6\n+term", "M7\n+home_own", "M8\n+purpose"),
+  RSS   = c(
+    sum(residuals(m0)^2), sum(residuals(m1)^2),
+    sum(residuals(m4)^2), sum(residuals(m5)^2),
+    sum(residuals(m6)^2), sum(residuals(m7)^2),
+    sum(residuals(m8)^2)
+  ),
+  Step = 1:7
+)
+
+ggplot(rss_data, aes(x = reorder(Model, Step), y = RSS / 1e6, group = 1)) +
+  geom_line(color = "red", linewidth = 1) +
+  geom_point(size = 3, color = "red") +
+  geom_text(aes(label = paste0(round(RSS / 1e6, 1), "M")),
+            vjust = -0.8, size = 3.5) +
+  annotate("rect",
+           xmin = 4.5, xmax = 5.5,
+           ymin = -Inf, ymax = Inf,
+           alpha = 0.1, fill = "blue") +
+  annotate("text", x = 5, y = 16,
+           label = "Largest\ndrop", size = 3.5,
+           color = "blue", fontface = "bold") +
+  labs(
+    title    = "Loan term dominates interest rate prediction, adding it halves unexplained error",
+    subtitle = "Each step tests whether the new predictor significantly reduces RSS via nested",
+    x        = "Model",
+    y        = "RSS (millions)"
+  ) +
+  theme_minimal()
+```
+
+Figure 2: Mean Interest Rate by Term (most significant predictor)
+
+```{r}
+actual_data |>
+  group_by(term) |>
+  summarise(
+    mean_int_rate = round(mean(int_rate, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = term, y = mean_int_rate)) +
+  geom_col() +
+  geom_text(aes(label = paste0(mean_int_rate, "%")),
+            vjust = -0.5) +
+  labs(
+    title   = "60-month loans carry higher interest rates than 36-month loans",
+    x       = "Loan Term",
+    y       = "Mean Interest Rate (%)",
+    caption = "LendingClub loan data, n = 887,365"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title          = element_text(face = "bold"),
+    plot.title.position = "plot"
+  )
+```
+
+#Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+
+```{r}
+states <- c("CA", "NY", "TX", "FL", "IL")
+
+q2_data <- actual_data |>
+  filter(addr_state %in% states) |>
+  drop_na(int_rate, dti, annual_inc, loan_amnt, term, home_ownership, purpose)
 ```
 
 ```{r}
-#
+state_models <- q2_data |>
+  group_by(addr_state) |>
+  group_split()
+
+models <- state_models |>
+  set_names(states) |>
+  map(\(df) lm(
+    int_rate ~ dti + annual_inc + loan_amnt + term + home_ownership + purpose,
+    data = df
+  ))
+```
+
+```{r}
+coef_table <- models |>
+  map_df(\(model) tidy(model), .id = "state") |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    significant = p.value < 0.05
+  )
+
+coef_table
+```
+
+```{r}
+significance_summary <- coef_table |>
+  group_by(term) |>
+  summarise(
+    states_significant = sum(significant),
+    total_states = n_distinct(state),
+    percent_significant = round(states_significant / total_states, 2),
+    .groups = "drop"
+  ) |>
+  arrange(desc(percent_significant))
+
+significance_summary
+```
+
+```{r}
+performance_table <- models |>
+  map_df(\(model) glance(model), .id = "state") |>
+  mutate(
+    MSE = sigma^2
+  ) |>
+  select(state, adj.r.squared, MSE) |>
+  arrange(desc(adj.r.squared))
+
+performance_table
+```
+
+```{r}
+library(knitr)
+kable(significance_summary, caption = "Predictor Significance Across States") 
+
+kable(performance_table, caption = "Model Performance by State")
+```
+
+```{r}
+performance_table %>%
+  ggplot(aes(x = state, y = adj.r.squared)) +
+  geom_col() +
+  labs(
+    title = "Adjusted R² by State",
+    x = "State",
+    y = "Adjusted R²"
+  ) +
+  theme_minimal()
 ```
 
 # Summary
 
-GIVE A 2 PARAGRAPH SUMMARY. 
+GIVE A 2 PARAGRAPH SUMMARY.
 
 PARAGRAPH 1 SHOULD DESCRIBE WHAT YOU LEARNED ABOUT YOUR DATA FROM INVESTIGATING THE INITIAL QUESTIONS. DID YOU FIND ANYTHING UNUSUAL IN YOUR DATA? DID ANYTHING SURPRISE YOU? WHICH OF THE INITIAL QUESTIONS WERE HELPFUL IN LEADING YOU TO MORE QUESTIONS?
 
