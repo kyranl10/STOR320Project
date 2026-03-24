@@ -288,7 +288,7 @@ actual_data |>
   theme_minimal()
 ```
 
-Interpretation of Findings:
+Interpretation of Findings: Interest rate is almost perfectly explained by grade and term together. Grade A loans average 7.22–8.00%, while grade G loans average 23.40–25.18%, a spread of over 17 percentage points. Within each grade, 60-month loans consistently carry slightly higher rates than 36-month loans, though the gap is modest (under 1%). The monotonic increase from A through G confirms that LendingClub's internal grading system is highly consistent with its pricing engine. For risk assessment purposes, grade is the dominant pricing signal, and loan term acts as a secondary risk premium on top of it.
 
 
 
@@ -338,7 +338,7 @@ ggplot(q2_plot_data,
   ) +
   theme_minimal()
 ```
-Interpretation of Findings:
+Interpretation of Findings: Income alone does a poor job of separating ownership groups, all four categories (RENT, MORTGAGE, OWN, OTHER) track nearly identical income trajectories across all 10 deciles, with medians converging tightly from roughly $27k at decile 1 to $147k at decile 10. This means income does not cleanly predict whether a borrower rents or owns. However, the homeownership breakdown by employment length (in Emily's Q2 follow-up) adds important context: as employment length increases, the share of mortgage holders rises steadily from 35% (under 1 year) to 62% (10+ years), while renters fall from 56% to 28%. Together, this suggests employment stability is a better differentiator of housing status than income level alone, and that renters — who are often earlier in their careers may represent a higher-mobility, higher-turnover risk segment for LendingClub.
 
 
 # Interpreter: Kyran Lakhia
@@ -382,7 +382,7 @@ ggplot(state_avg, aes(x = reorder(addr_state, avg_grade), y = avg_grade, fill = 
   )
 ```
 
-The chart shows the states with the worst average loan grades. Since loan grades range from A (best) to G (worst), higher numeric averages indicate lower credit quality. However, the averages are still between B and C, which suggests that overall loan quality remains fairly strong even in the states with the lowest average grades.
+Interpretation: No state is dramatically underperforming. The ten worst-graded states (Iowa, Mississippi, Hawaii, Alabama, Nebraska, Tennessee, North Dakota, Alaska, Indiana, Delaware) all average between grade B and C numerically. Iowa leads with the highest average numeric grade at 3.43, still mapping to a "C." This is actually a reassuring signal: even in the weakest states, credit quality remains in acceptable territory. However, for LendingClub's risk team, these states merit closer monitoring. Smaller-volume states like Iowa (only 14 loans) and Idaho (12 loans) should be interpreted with caution, as their averages are based on tiny samples and could shift significantly with more data.
 
 ### Q2: Is there a relationship between home ownership and purpose?
 
@@ -413,6 +413,9 @@ actual_data |>
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
+
+Interpretation: Across all three major ownership groups, debt consolidation dominates loan purpose, accounting for roughly 60% of loans regardless of whether the borrower rents, has a mortgage, or owns outright. Credit cards are the second most common purpose across all groups. One notable difference: renters show a disproportionately low share of home improvement loans compared to mortgage holders, which is intuitive since renters have less incentive to invest in property upgrades. The near-uniform distribution of purposes across ownership types suggests that home ownership is not a strong differentiator of why someone borrows, but it may still be meaningful for predicting repayment behavior, since mortgage holders tend to have more financial obligations and stability.
+
 
 # Orator 1: Ross Guinan
 
@@ -445,8 +448,7 @@ q1_boxplot <- ggplot(actual_data, aes(x = grade, y = loan_amnt)) +
 q1_boxplot
 ```
 
-Interpretation of Findings:
-
+Interpretation of Findings: There is a clear, positive relationship between loan grade and loan amount — but it runs in the counterintuitive direction. Grade A borrowers (the most creditworthy) have a median loan of $12,000, while grade G borrowers (the riskiest) have a median of $20,000. This means riskier borrowers are taking out larger loans, which compounds LendingClub's exposure. The boxplots also show increasing spread and higher upper quartiles as grade worsens, confirming that high-grade borrowers tend to take smaller, more standardized loans while low-grade borrowers show more variability. From a portfolio management perspective, the combination of lower creditworthiness and larger loan sizes in grades E–G represents a concentrated risk that warrants careful underwriting scrutiny.
 
 
 ### Q2: Is there a correlation between DTI (debt-to-income) and purpose?
@@ -481,8 +483,7 @@ q2_boxplot <- ggplot(capped_dti, aes(x = purpose, y = dti)) +
 q2_boxplot
 ```
 
-Interpretation of Findings:
-
+Interpretation of Findings: Debt consolidation and credit card loans — which together make up over 82% of all loans — show the highest median DTI values, around 18–19. This makes intuitive sense: borrowers already carrying heavy debt loads are turning to LendingClub to restructure or pay off existing obligations. In contrast, car loans, small business loans, and educational loans show notably lower DTI medians (around 11–14), suggesting these borrowers come in with lighter existing debt burdens. High-DTI borrowers concentrated in debt consolidation are a particular risk flag and they are already financially stretched, and if the consolidation loan fails to meaningfully reduce their obligations, the probability of default rises. LendingClub should weight DTI heavily when evaluating consolidation loan applications.
 
 
 # Orator 2: Carter Boxell
@@ -518,10 +519,7 @@ ggplot(
 
 ```
 
-Interpretation of Findings:
-
-
-
+Interpretation of Findings: 
 
 
 ### Q2: Is there a relationship between state and purpose of loan?
@@ -615,7 +613,7 @@ ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = 
     fill = "Avg Amount")
 ```
 
-Interpretation of Findings: There is variation within the loan amount based on what the loan is for, with weddings being category with the highest average loan amount and vacations being the smallest, at only one third of the amount of weddings. But the weddings catagory is very small, with only three weddings accounted for. The median and mean are most consistent with each other, aprat from credit card and house swap positions in the highest loan on average rankings, going from about the same mean to house having a higher median suggesting the distribution of loan amounts for houses is somehwat skewed to the left. This knowledge will help the LendingClub choose what loans to take on based on the purpose of the loan, as they will know what is a normal amount for someone to be asking for a loan of that type and therefore avoid losing money.
+Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around $15,000–$15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around $6,300–$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a higher median ($12,575) relative to their mean ($14,798), suggesting a left-skewed distribution where a cluster of smaller house loans pulls the median down. 
 
 
 
@@ -656,7 +654,7 @@ ggplot(actual_data, aes(x = emp_length, fill = home_ownership)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-Interpretation of Findings: The proportion of loan borrowers decreases with employment length. Those who are employed for 1 year are more likely to rent than someone who has been employed for longer. The inverse is true for those with a mortgage; the proportion of borrowers increases with increased employment length. The proportion of borrowers who own, however, are pretty consistent across years of employment. This will help the LendingClub know who has a consistent income and from a risk perspective, renters often represent a more mobile demographic, which may contribute to the higher default rates scaring away investors because they could lose money by lending to them.
+Interpretation of Findings: TThe data reveals a compelling and practically significant trend: as employment length increases, the proportion of mortgage holders rises from 35% (under 1 year) to over 61% (10+ years), while renters decline from 56% to just 28%. The proportion of outright owners holds steady at roughly 9% across all employment levels. This suggests that employment tenure is a strong proxy for financial stability and housing progression — longer-tenured workers have had more time to accumulate the savings and credit history needed to obtain a mortgage. From a credit risk standpoint, this is an actionable insight: short-tenure renters, who make up a disproportionate share of early-career borrowers, may represent higher default risk, not because of their purpose or income level, but because of their overall financial instability profile. LendingClub should consider employment length as a meaningful input into its risk scoring model.
 
 # Follow-up Questions
 
@@ -680,7 +678,7 @@ SHOW AT LEAST 2 TABLES OR FIGURES BELOW THAT EXPLORE ANSWERS FOR THE QUESTIONS Y
 #Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
 
 ```{r}
-question1_data <- actual_data |>
+q1_data <- actual_data |>
   drop_na(int_rate, dti, annual_inc, loan_amnt, term, home_ownership, purpose)
 
 m0 <- lm(int_rate ~ 1,                                                              data = q1_data)
