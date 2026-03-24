@@ -178,7 +178,7 @@ The following issues were identified in the raw dataset and addressed during dat
 ### Data Cleaning
 
 ```{r}
-# Step 1: Recode n/a in emp_length to NA and clean blank-like string values
+#Recode n/a in emp_length to NA and clean blank-like string values
 actual_data <- actual_data |>
   mutate(across(where(is.factor), ~ fct_recode(., NULL = "n/a"))) |>
   mutate(across(where(is.character), ~ str_squish(.))) |>
@@ -189,20 +189,20 @@ actual_data <- actual_data |>
       TRUE ~ .x
     )))
 
-# Step 2: Remove duplicate rows (keep first occurrence)
+#Remove duplicate rows (keep first occurrence)
 actual_data <- actual_data[!duplicated(actual_data), ]
 
-# Step 3: Remove invalid dti outliers
+# Remove invalid dti outliers
 actual_data <- actual_data |>
   filter(dti <= 100)
 
-# Step 4: Collapse rare home_ownership levels into OTHER
+#Collapse rare home_ownership levels into OTHER
 actual_data <- actual_data |>
   mutate(home_ownership = fct_collapse(home_ownership,
     OTHER = c("OTHER", "NONE", "ANY")
   ))
 
-# Step 5: Ordered factor encoding
+#Ordered factor encoding
 actual_data <- actual_data |>
   mutate(
     grade = factor(grade, 
@@ -219,7 +219,7 @@ actual_data <- actual_data |>
     purpose = fct_relabel(purpose, ~ str_replace_all(.x, "_", " "))
   )
 
-# Step 6: Apply clamp transformation to valid outliers
+#Apply clamp transformation to valid outliers
 clamp <- function(x) {
   Q1 <- quantile(x, 0.25, na.rm = TRUE)
   Q3 <- quantile(x, 0.75, na.rm = TRUE)
@@ -235,13 +235,12 @@ actual_data <- actual_data |>
     int_rate   = clamp(int_rate)
   )
 
-# Step 7: Drop rows with NAs in key variables
-# (retain rows missing only emp_length or annual_inc for unrelated analyses)
+#Drop rows with NAs in key variables
 actual_data <- actual_data |>
   drop_na(int_rate, loan_amnt, grade, home_ownership, 
           purpose, term, addr_state, dti)
 
-# Step 8: Confirm final state of data
+#Confirm final state of data
 glimpse(actual_data)
 dim(actual_data)
 
