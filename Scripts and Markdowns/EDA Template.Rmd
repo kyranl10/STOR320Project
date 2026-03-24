@@ -615,7 +615,7 @@ ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = 
 ```
 
 Interpretation of Findings:
-
+There is variation within the loan amount based on what the loan is for, with weddings being category with the highest average loan amount and vacations being the smallest, at only one third of the amount of weddings. But the weddings catagory is very small, with only three weddings accounted for. The median and mean are most consistent with each other, aprat from credit card and house swap positions in the highest loan on average rankings, going from about the same mean to house having a higher median suggesting the distribution of loan amounts for houses is somehwat skewed to the left. This knowledge will help the LendingClub choose what loans to take on based on the purpose of the loan, as they will know what is a normal amount for someone to be asking for a loan of that type and therefore avoid losing money.
 
 
 
@@ -657,7 +657,7 @@ ggplot(actual_data, aes(x = emp_length, fill = home_ownership)) +
 ```
 
 Interpretation of Findings:
-
+The proportion of loan borrowers decreases with employment length. Those who are employed for 1 year are more likely to rent than someone who has been employed for longer. The inverse is true for those with a mortgage; the proportion of borrowers increases with increased employment length. The proportion of borrowers who own, however, are pretty consistent across years of employment. This will help the LendingClub know who has a consistent income and from a risk perspective, renters often represent a more mobile demographic, which may contribute to the higher default rates scaring away investors because they could lose money by lending to them.
 
 
 
