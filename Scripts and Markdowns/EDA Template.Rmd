@@ -904,7 +904,7 @@ actual_data |>
 Interpretation of Findings: The sequential ANOVA results show that every predictor added meaningfully reduced unexplained error, with loan term producing by far the largest single drop in RSS — from 15.6M down to 13.3M — cutting unexplained variance nearly in half in one step (F = 172,245.3, p < 2.2e-16). The bar chart confirms this visually, with 60-month loans averaging 16.1% interest versus 12.02% for 36-month loans, a gap of over 4 percentage points. The Type II ANOVA from the full model (M8) reinforces that term remains the dominant predictor even after controlling for all other variables (F = 165,528.3), followed by annual income (F = 20,747.7), DTI (F = 9,384.1), and loan amount (F = 6,630.3), all significant at p < 2.2e-16. Purpose and home ownership also contribute significantly but are weaker signals relative to term and income. Overall, loan term is clearly the single most powerful predictor of interest rate in this dataset, and adding all six predictors together brings RSS down from 16.9M to 12.2M, suggesting the full model explains substantially more variation than any single variable alone.
 
 
-#Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
+#Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan interest remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
 
 ```{r}
 states <- c("CA", "NY", "TX", "FL", "IL")
