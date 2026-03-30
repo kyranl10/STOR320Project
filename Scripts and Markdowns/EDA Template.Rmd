@@ -1,11 +1,10 @@
 ---
 title: "Exploratory Data Analysis"
-author: 'STOR 320.(01 OR 02) Group PLACE_GROUP_NUMBER_HERE (Ex: STOR 320.01 Group
-  12)'
+author: 'STOR 320.02 Group 2'
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup}
@@ -25,11 +24,10 @@ suppressWarnings(library(broom))
 
 ```{r}
 # Import Data Below
-loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv")
+suppressWarnings(loan_dataset_full <- read_csv("../Raw Data/lc_loan.csv"))
 ```
 
 Subset of actual dataset of interest:
-
 ```{r}
 actual_data <- loan_dataset_full |>
   select(annual_inc, int_rate, loan_amnt, emp_length, dti,
@@ -270,12 +268,10 @@ q1_table |> gt()
 model_1 <- lm(int_rate ~ term + grade, data = actual_data)
 summary(model_1)
 
-tidy(model_1, conf.int = TRUE)
+tidy(model_1, conf.int = TRUE) |> gt()
 ```
 
-
 Graph:
-
 ```{r}
 actual_data |>
   ggplot(aes(x = grade, y = int_rate, fill = term)) +
@@ -289,16 +285,21 @@ actual_data |>
   theme_minimal()
 ```
 
-Interpretation of Findings: Interest rate is almost perfectly explained by grade and term together. Grade A loans average 7.22–8.00%, while grade G loans average 23.40–25.18%, a spread of over 17 percentage points. Within each grade, 60-month loans consistently carry slightly higher rates than 36-month loans, though the gap is modest (under 1%). The monotonic increase from A through G confirms that LendingClub's internal grading system is highly consistent with its pricing engine. For risk assessment purposes, grade is the dominant pricing signal, and loan term acts as a secondary risk premium on top of it.
+Interpretation of Findings: Grade and term together do an almost complete job of explaining interest rate. Grade A loans have a mean of 7.22–8.00% and median of 7.26–7.89%, while Grade G loans sit at a mean of 23.40–25.18% and median of 25.51% — a spread of over 17 percentage points between the best and worst grade. The standard deviation also widens at higher grades, with Grade G's 36-month loans showing an SD of 3.12 compared to just 0.98 for Grade A, suggesting rates become more variable as credit quality drops. Within each grade, 60-month loans tend to carry slightly higher rates than 36-month loans, though the gap is modest and never exceeds 1%. This steady climb from A through G suggests LendingClub's grading system maps almost directly onto its pricing — grade is really just risk translated into a rate.
 
-A linear regression model was also fit to predict interest rate from loan term and loan grade, and the overall model was statistically significant (F(7, 887357) = 1,321,000, p < 2.2e-16). The model explained 91.24% of the variance in interest rate (R² = 0.9124), indicating that these two variables are very strong predictors. Controlling for grade, loan term was a significant predictor of interest rate, with longer terms associated with higher rates (β = 0.057, p < 2e-16). Loan grade was the dominant predictor: compared to Grade A, interest rates increased consistently and substantially with each worsening grade, ranging from +3.58 percentage points for Grade B up to +17.65 percentage points for Grade G, all statistically significant (p < 2e-16). The confidence intervals for all predictors were narrow and did not contain zero, further supporting these findings. Overall, the interest rate can be strongly predicted based on loan term and loan grade.
-
+The regression backs this up. The model was statistically significant (F(7, 887357) = 1,321,000, p < 2.2e-16) and explained 91.24% of the variance in interest rate (R² = 0.9124), which is unusually high for a two-variable model. Controlling for grade, loan term still matters — longer terms are associated with higher rates (β = 0.057, p < 2e-16, 95% CI: [0.052, 0.061]) — but grade is clearly doing the heavy lifting, with the linear contrast alone coming in at 15.91 (p < 2e-16). Every grade contrast term was significant with tight confidence intervals, leaving little doubt that both variables are genuine predictors and not just noise.
 
 ### Q2: Can home ownership status be predicted using borrower income and employment length?
 
 Summary:
 
 ```{r}
+# Set MORTGAGE as reference category
+actual_data$home_ownership <- relevel(actual_data$home_ownership, ref = "MORTGAGE")
+levels(actual_data$home_ownership)
+
+
+# Summary Table 1: Income by home ownership
 suppressWarnings(q2_table <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
   group_by(home_ownership, inc_decile) |>
@@ -312,24 +313,23 @@ suppressWarnings(q2_table <- actual_data |>
   arrange(home_ownership, inc_decile))
 
 q2_table |> gt()
+
+# Summary Table 2: Employment length by home ownership
+q2_table_emp <- actual_data |>
+  group_by(home_ownership, emp_length) |>
+  summarise(
+    n = n(),
+    .groups = "drop"
+  ) |>
+  group_by(emp_length) |>
+  mutate(prop = round(n / sum(n), 3)) |>
+  arrange(emp_length, home_ownership)
+q2_table_emp |> gt()
 ```
 
+Graph #1:
 ```{r}
-library(nnet)
-library(broom)
-
-model_2 <- multinom(home_ownership ~ annual_inc + emp_length, 
-                    data = actual_data)
-summary(model_2)
-tidy(model_2, conf.int = TRUE, exponentiate = TRUE)
-```
-
-
-
-Graph:
-
-```{r}
-q2_plot_data <- actual_data |>
+suppressWarnings(q2_plot_data <- actual_data |>
   mutate(inc_decile = ntile(annual_inc, 10)) |>
   group_by(home_ownership, inc_decile) |>
   summarise(
@@ -337,10 +337,10 @@ q2_plot_data <- actual_data |>
     q1 = quantile(annual_inc, 0.25, na.rm = TRUE),
     q3 = quantile(annual_inc, 0.75, na.rm = TRUE),
     .groups = "drop"
-  )
+  ))
 
-ggplot(q2_plot_data, 
-       aes(x = inc_decile, y = median_inc, 
+suppressWarnings(ggplot(q2_plot_data,
+       aes(x = inc_decile, y = median_inc,
            group = home_ownership, color = home_ownership)) +
   geom_line() +
   geom_point(size = 2) +
@@ -351,10 +351,40 @@ ggplot(q2_plot_data,
     y = "Median Annual Income",
     color = "Home Ownership"
   ) +
-  theme_minimal()
+  theme_minimal())
 ```
 
-Interpretation of Findings: Income alone does a poor job of separating ownership groups, all four categories (RENT, MORTGAGE, OWN, OTHER) track nearly identical income trajectories across all 10 deciles, with medians converging tightly from roughly \$27k at decile 1 to \$147k at decile 10. This means income does not cleanly predict whether a borrower rents or owns. However, the homeownership breakdown by employment length (in Emily's Q2 follow-up) adds important context: as employment length increases, the share of mortgage holders rises steadily from 35% (under 1 year) to 62% (10+ years), while renters fall from 56% to 28%. Together, this suggests employment stability is a better differentiator of housing status than income level alone, and that renters — who are often earlier in their careers may represent a higher-mobility, higher-turnover risk segment for LendingClub.
+Graph #2:
+```{r}
+actual_data |>
+  ggplot(aes(x = emp_length, fill = home_ownership)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Home Ownership Distribution by Employment Length",
+    x = "Employment Length",
+    y = "Proportion",
+    fill = "Home Ownership"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Multinomial logistic regression:
+```{r}
+library(nnet)
+library(broom)
+
+# emp_length treated as unordered to avoid polynomial contrasts
+model_2 <- multinom(home_ownership ~ annual_inc + 
+                    factor(emp_length, ordered = FALSE), 
+                    data = actual_data)
+summary(model_2)
+tidy(model_2, exponentiate = TRUE, conf.int = TRUE) |> gt()
+```
+
+Interpretation of Findings: Looking at the summary tables, income does surprisingly little to separate borrowers by housing status — all four groups (MORTGAGE, OTHER, OWN, RENT) follow nearly the same income path across all 10 deciles, with mean incomes climbing from around $28,000–$30,000 at decile 1 to roughly $147,000–$158,000 at decile 10, and the ranges within each decile overlapping almost perfectly across ownership categories. Employment length is where things get more interesting as borrowers under 1 year on the job are mostly renters (56.4%) with only 35.2% holding a mortgage, but among those with 10+ years that relationship reverses sharply — 61.5% hold mortgages while just 28.2% rent, a difference of over 25 percentage points in each direction. Outright ownership stays remarkably flat the whole time, ranging only from 8.4% to 10.3% across all employment lengths, and OTHER is essentially noise at under 0.1% throughout. For LendingClub, this points to a clear takeaway that employment tenure is a much better signal of housing stability than income level, and long-tenured mortgage holders likely represent the lower-risk end of the borrower spectrum.
+
+The multinomial logistic regression model predicting home ownership from income and employment length (reference = MORTGAGE; Residual Deviance = 1,489,236, AIC = 1,489,308) tells a similar story. Income came back statistically significant but the odds ratios were basically 1.0 across the board (OTHER: 0.9999843, OWN: 0.9999883, RENT: 0.9999844), meaning it has no real practical power to distinguish who holds a mortgage from who rents. Employment length did a better job where the odds of renting versus holding a mortgage dropped steadily from 0.899 at 1 year all the way down to 0.312 at 10+ years, reinforcing that tenure matters. That said, the extremely small standard errors throughout the model raise flags about instability, so these results should be taken with some caution.
 
 # Interpreter: Kyran Lakhia
 
@@ -674,7 +704,7 @@ ggplot(bar_data, aes(x = reorder(purpose, median_loan), y = median_loan, fill = 
     fill = "Avg Amount")
 ```
 
-Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around $15,000–$15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around $6,300–$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a lower median ($12,575) relative to their mean ($14,798), suggesting a right-skewed distribution.
+Interpretation of Findings: loan purpose is meaningfully associated with loan size. Debt consolidation, small business, and credit card loans sit at the top with average amounts around $15,000 - $15,400, reflecting that these borrowers are addressing large existing obligations or financing business operations. Vacation and educational loans are at the bottom, averaging around $6,300–$6,600, consistent with smaller, more discretionary spending. The median rankings largely mirror the mean, with one notable exception: house loans have a lower median ($12,575) relative to their mean of $14,798, suggesting a right-skewed distribution.
 
 ### Q2: How does employment length relate to homeownership status?
 
@@ -729,10 +759,7 @@ Interpretation of Findings: TThe data reveals a compelling and practically signi
 -   Q4: Are 60-month term loans more likely to default than 36-month loans within the same grade, and does this gap widen at lower grades (D–G)?
 
 ### Investigation of Follow-up Questions
-
-GIVE WHAT 2 QUESTIONS YOU ATTEMPTED TO INVESTIGATE FURTHER IN COMPLETE SENTENCES (*Example:* Our group decided to investigate Q2 and Q4 in further detail.)
-
-SHOW AT LEAST 2 TABLES OR FIGURES BELOW THAT EXPLORE ANSWERS FOR THE QUESTIONS YOU ARE INVESTIGATING FURTHER.
+Our group decided to investigate Q1 and Q2 in further detail.
 
 #Q1: Which borrower and loan characteristics are the most significant predictors of interest rate, and how does model performance change as we add complexity?
 
@@ -874,6 +901,8 @@ actual_data |>
     plot.title.position = "plot"
   )
 ```
+Interpretation of Findings: The sequential ANOVA results show that every predictor added meaningfully reduced unexplained error, with loan term producing by far the largest single drop in RSS — from 15.6M down to 13.3M — cutting unexplained variance nearly in half in one step (F = 172,245.3, p < 2.2e-16). The bar chart confirms this visually, with 60-month loans averaging 16.1% interest versus 12.02% for 36-month loans, a gap of over 4 percentage points. The Type II ANOVA from the full model (M8) reinforces that term remains the dominant predictor even after controlling for all other variables (F = 165,528.3), followed by annual income (F = 20,747.7), DTI (F = 9,384.1), and loan amount (F = 6,630.3), all significant at p < 2.2e-16. Purpose and home ownership also contribute significantly but are weaker signals relative to term and income. Overall, loan term is clearly the single most powerful predictor of interest rate in this dataset, and adding all six predictors together brings RSS down from 16.9M to 12.2M, suggesting the full model explains substantially more variation than any single variable alone.
+
 
 #Q2: Across the five states with the highest loan volume (CA, NY, TX, FL, IL), do the significant predictors of loan grade remain consistent, or do certain borrower characteristics become more or less predictive depending on the state?
 
@@ -936,7 +965,7 @@ performance_table
 ```
 
 ```{r}
-library(knitr)
+suppressWarnings(library(knitr))
 kable(significance_summary, caption = "Predictor Significance Across States") 
 
 kable(performance_table, caption = "Model Performance by State")
@@ -953,16 +982,14 @@ performance_table %>%
   ) +
   theme_minimal()
 ```
+Interpretation of Findings: The predictors of interest rate are strikingly consistent across all five states — annual income, DTI, loan amount, term, and most purpose categories were significant in all 5 states, pointing to a standardized national pricing structure rather than anything state-specific. The only real exceptions were educational loans, which weren't significant anywhere (0 of 5 states), and home_ownership OTHER, which missed significance in one state. Model fit was nearly identical across states too, with adjusted R² hovering between 0.262 (NY) and 0.284 (IL) and MSE between 13.58 (TX) and 14.12 (FL) — tight enough that no single state stands out as meaningfully easier or harder to model. The relatively low R² values (~0.27) compared to the national model make sense given that grade is excluded here, meaning these borrower characteristics alone only explain about 27% of interest rate variation within each state.
 
 # Summary
-
-GIVE A 2 PARAGRAPH SUMMARY.
 
 PARAGRAPH 1:
 
 Our initial exploration of the LendingClub dataset showed that loan grade and term are primary determinants of interest rates. Interest rates increase from Grade A to Grade G, with 60-month terms often being more costly with a higher interest rate. It surprised us that annual income does not clearly differentiate homeowner status, but employment length did emerge as a more reliable predictor. As employment length increases, we observed a significant increase in the proportion of mortgage holders, jumping from about 35% to 62%. We also identified a trend where borrowers of lower grades (eg. Grades from E to G) take out loans with more variability in amounts, which could be risky as they are marked as riskier borrowers with their loan Grade. To help aid us in further exploration, our question about interest rate by grade and term helped us determine the importance of different variables for the interest, since grade and term were so dominant. We also looked further into the average grade by state, where we found that the lowest states still have an average Grade C, which suggested some stability nationally, bringing up more questions about variation across states.
 
 
-PARAGRAPH 2 SHOULD SUMMARIZE WHAT YOU LEARNED FROM INVESTIGATING THE FOLLOW-UP QUESTIONS. WHY ARE THESE FOLLOW-UP QUESTIONS INTERESTING FOR INVESTIGATION? DESCRIBE THE TABLES/FIGURES YOU USED TO EXPLORE ANSWERS TO THESE FOLLOW-UP QUESTIONS? WHAT DID YOU LEARN FROM THE TABLES/FIGURES REGARDING THE FOLLOW-UP QUESTIONS YOU PROPOSED?
-
+PARAGRAPH 2:
 In our follow-up investigation, we confirmed that the loan term is the dominant predictor of interest rates across all regions. Our financial variables: DTI, annual income, and loan amount, were also significant across the five highest volume states (California, New York, Texas, Florida, and Illinois), with higher DTI increasing rates. Loan purposes like credit cards and small businesses were stable predictors in all states; factors like homeownership and home improvement were not generally significant. We used a systematic model comparison to show how the model increased in efficacy when it increased in complexity, with a decrease of the residual sum of squares. From this table, we were able to make a visual representation with a line graph that mapped the loan terms in comparison with the mean interest rates. Another figure used was for the second question, where we created a bar chart to compare the Mean Squared Error for each state, where we found that model performance remained consistent with Adjusted R^2 values ranging from about 0.26 to 0.28. This suggests that LendingClub's risk assessment is largely standard nationally, capturing similar variation across states.
