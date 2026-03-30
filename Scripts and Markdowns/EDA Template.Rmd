@@ -71,7 +71,7 @@ missing_tbl <- actual_data |>
   pivot_longer(everything(), names_to = "Feature", values_to = "n_missing") |>
   arrange(desc(n_missing))
 
-missing_tbl
+missing_tbl |> gt()
 ```
 
 ```{r}
